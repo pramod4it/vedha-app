@@ -1,318 +1,539 @@
-import { isSelfHosted } from '@shared/constants.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type AuthenticatedUser, SubscriptionLevel } from '../shared/api';
+
 import {
-  Toast,
-  ToastDescription,
-  ToastProvider,
-  ToastTitle,
-  ToastViewport,
+    type AuthenticatedUser,
+    SubscriptionLevel,
+} from '../shared/api';
+
+import {
+    Toast,
+    ToastDescription,
+    ToastProvider,
+    ToastTitle,
+    ToastViewport,
 } from './components/ui/toast';
+
 import { AppModeProvider } from './contexts/appMode';
+
 import { ToastContext } from './contexts/toast';
-import { AuthForm } from './pages/AuthForm';
+
+import { AuthForm } from './pages';
+
 import SubscribedApp from './pages/SubscribedApp';
+
 import { getAuthProvider } from './services/auth/index';
-import { authService } from './services/auth.ts';
+
+import { authService } from './services/auth';
+
 import { getStorageProvider } from './services/storage';
 
 interface ToastState {
-  open: boolean;
-  title: string;
-  description: string;
-  variant: 'neutral' | 'success' | 'error';
+    open: boolean;
+    title: string;
+    description: string;
+    variant:
+        | 'neutral'
+        | 'success'
+        | 'error';
 }
 
 interface AppState {
-  isInitialized: boolean;
-  user: AuthenticatedUser | null;
-  loading: boolean;
+    isInitialized: boolean;
+    user: AuthenticatedUser | null;
+    loading: boolean;
 }
 
 interface AppContentProps {
-  isInitialized: boolean;
-  user: AuthenticatedUser;
+    isInitialized: boolean;
+    user: AuthenticatedUser;
 }
 
-function AppContent({ isInitialized, user }: AppContentProps) {
-  const [currentUser, setCurrentUser] = useState(user);
+function AppContent({
+                        isInitialized,
+                        user,
+                    }: AppContentProps) {
 
-  // Update currentUser when prop changes
-  useEffect(() => {
-    setCurrentUser(user);
-  }, [user]);
+    const [currentUser, setCurrentUser] =
+        useState(user);
 
-  // Periodic subscription check every 15 seconds for FREE users
-  useEffect(() => {
-    if (currentUser.subscription.level !== SubscriptionLevel.FREE) {
-      return;
+    useEffect(() => {
+        setCurrentUser(user);
+    }, [user]);
+
+    useEffect(() => {
+
+        if (
+            currentUser.subscription.level !==
+            SubscriptionLevel.FREE
+        ) {
+            return;
+        }
+
+        const intervalId =
+            setInterval(() => {
+
+                authService
+                    .getCurrentUser()
+
+                    .then(async (updatedUser) => {
+
+                        if (
+                            updatedUser &&
+                            updatedUser.subscription.level !==
+                            SubscriptionLevel.FREE
+                        ) {
+
+                            window.electronAPI
+                                ?.setSubscriptionLevel(
+                                    updatedUser.subscription.level,
+                                )
+                                .catch(console.error);
+
+                            try {
+
+                                const currentSettings =
+                                    await getStorageProvider().getSettings();
+
+                                const newProvider =
+                                    getStorageProvider(
+                                        updatedUser.subscription.level,
+                                    );
+
+                                await newProvider.updateSettings({
+                                    solutionLanguage:
+                                    currentSettings.solutionLanguage,
+
+                                    userLanguage:
+                                    currentSettings.userLanguage,
+                                });
+
+                            } catch (err) {
+
+                                console.error(
+                                    'Failed to migrate settings on upgrade:',
+                                    err,
+                                );
+                            }
+
+                            setCurrentUser(
+                                updatedUser,
+                            );
+                        }
+                    })
+
+                    .catch((err) => {
+
+                        console.error(
+                            'Error checking subscription status:',
+                            err,
+                        );
+                    });
+
+            }, 15000);
+
+        return () =>
+            clearInterval(intervalId);
+
+    }, [currentUser.subscription.level]);
+
+    if (!isInitialized) {
+
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+
+                    <div className="w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
+
+                    <p className="text-white/60 text-sm">
+                        Initializing...
+                        If you see this screen for more than 10 seconds,
+                        please quit and restart the app.
+                    </p>
+
+                </div>
+            </div>
+        );
     }
 
-    const intervalId = setInterval(() => {
-      authService
-        .getCurrentUser()
-        .then(async (updatedUser) => {
-          if (updatedUser && updatedUser.subscription.level !== SubscriptionLevel.FREE) {
-            window.electronAPI
-              ?.setSubscriptionLevel(updatedUser.subscription.level)
-              .catch(console.error);
-
-            try {
-              const currentSettings = await getStorageProvider().getSettings();
-              const newProvider = getStorageProvider(updatedUser.subscription.level);
-              await newProvider.updateSettings({
-                solutionLanguage: currentSettings.solutionLanguage,
-                userLanguage: currentSettings.userLanguage,
-              });
-            } catch (err) {
-              console.error('Failed to migrate settings on upgrade:', err);
-            }
-
-            setCurrentUser(updatedUser);
-          }
-        })
-        .catch((err) => {
-          console.error('Error checking subscription status:', err);
-        });
-    }, 15000);
-
-    return () => clearInterval(intervalId);
-  }, [currentUser.subscription.level]);
-
-  if (!isInitialized) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
-          <p className="text-white/60 text-sm">
-            Initializing...If you see this screen for more than 10 seconds, please quit and restart
-            the app.
-          </p>
-        </div>
-      </div>
+        <SubscribedApp user={currentUser} />
     );
-  }
-
-  return <SubscribedApp user={currentUser} />;
 }
 
 function useAppInitialization() {
-  const [appState, setAppState] = useState<AppState>({
-    isInitialized: false,
-    user: null,
-    loading: true,
-  });
 
-  const [toastState, setToastState] = useState<ToastState>({
-    open: false,
-    title: '',
-    description: '',
-    variant: 'neutral',
-  });
+    const [appState, setAppState] =
+        useState<AppState>({
+            isInitialized: false,
+            user: null,
+            loading: true,
+        });
 
-  const mountedRef = useRef(true);
-  const initializationRef = useRef<{
-    isInitializing: boolean;
-  }>({
-    isInitializing: false,
-  });
+    const [toastState, setToastState] =
+        useState<ToastState>({
+            open: false,
+            title: '',
+            description: '',
+            variant: 'neutral',
+        });
 
-  const markInitialized = useCallback(() => {
-    if (!mountedRef.current) {
-      return;
-    }
-    setAppState((prev) => ({
-      ...prev,
-      isInitialized: true,
-    }));
-    window.__IS_INITIALIZED__ = true;
-  }, []);
+    const mountedRef =
+        useRef(true);
 
-  const showToast = useCallback(
-    (title: string, description: string, variant: ToastState['variant']) => {
-      if (!mountedRef.current) {
-        return;
-      }
-      setToastState({
-        open: true,
-        title,
-        description,
-        variant,
-      });
-    },
-    [],
-  );
+    const initializationRef =
+        useRef({
+            isInitializing: false,
+        });
 
-  const initializeApp = useCallback(async () => {
-    if (initializationRef.current.isInitializing) {
-      return;
-    }
+    const markInitialized =
+        useCallback(() => {
 
-    initializationRef.current.isInitializing = true;
+            if (!mountedRef.current) {
+                return;
+            }
 
-    try {
-      if (!mountedRef.current) {
-        return;
-      }
-      setAppState((prev) => ({ ...prev, loading: true }));
+            setAppState((prev) => ({
+                ...prev,
+                isInitialized: true,
+            }));
 
-      // In self-hosted mode, skip the initialization as AuthForm handles it
-      if (isSelfHosted()) {
-        setAppState((prev) => ({ ...prev, loading: false }));
+            window.__IS_INITIALIZED__ =
+                true;
 
-        return;
-      }
+        }, []);
 
-      const authProvider = getAuthProvider();
-      const user = await authProvider.getCurrentUser();
+    const showToast =
+        useCallback(
+            (
+                title: string,
+                description: string,
+                variant: ToastState['variant'],
+            ) => {
 
-      if (!mountedRef.current) {
-        return;
-      }
+                if (!mountedRef.current) {
+                    return;
+                }
 
-      if (!user) {
-        await authProvider.clearAuthToken();
-        setAppState((prev) => ({ ...prev, loading: false }));
+                setToastState({
+                    open: true,
+                    title,
+                    description,
+                    variant,
+                });
 
-        return;
-      }
+            },
+            [],
+        );
 
-      setAppState((prev) => ({ ...prev, user }));
-      window.electronAPI?.setSubscriptionLevel(user.subscription.level).catch(console.error);
+    const initializeApp =
+        useCallback(async () => {
 
-      const token = await authProvider.getAuthToken();
-      if (!token) {
-        setAppState((prev) => ({ ...prev, user: null, loading: false }));
+            if (
+                initializationRef.current
+                    .isInitializing
+            ) {
+                return;
+            }
 
-        return;
-      }
+            initializationRef.current.isInitializing =
+                true;
 
-      try {
-        await getStorageProvider(user.subscription.level).getSettings();
+            try {
 
-        if (!mountedRef.current) {
-          return;
-        }
+                if (!mountedRef.current) {
+                    return;
+                }
 
-        markInitialized();
-      } catch (settingsError) {
-        if (!mountedRef.current) {
-          return;
-        }
-        console.error('Error fetching user settings:', settingsError);
-        showToast('Error', 'Failed to load user settings', 'error');
-        markInitialized();
-      }
-    } catch (error) {
-      if (!mountedRef.current) {
-        return;
-      }
-      console.error('Initialization error:', error);
-      const authProvider = getAuthProvider();
-      await authProvider.clearAuthToken();
-      setAppState((prev) => ({ ...prev, user: null, loading: false }));
-      showToast('Error', 'Failed to initialize app', 'error');
-    } finally {
-      if (mountedRef.current) {
-        setAppState((prev) => ({ ...prev, loading: false }));
-        initializationRef.current.isInitializing = false;
-      }
-    }
-  }, [setAppState, markInitialized, showToast]);
+                setAppState((prev) => ({
+                    ...prev,
+                    loading: true,
+                }));
 
-  const setUser = useCallback(
-    async (user: AuthenticatedUser | null) => {
-      if (!mountedRef.current) {
-        return;
-      }
-      setAppState((prev) => ({
-        ...prev,
-        user,
-      }));
+                const authProvider =
+                    getAuthProvider();
 
-      if (user) {
-        if (isSelfHosted()) {
-          // In self-hosted mode, initialize settings directly
-          try {
-            await getStorageProvider(SubscriptionLevel.FREE).getSettings();
-            markInitialized();
-          } catch (settingsError) {
-            console.error('Error fetching user settings in self-hosted mode:', settingsError);
-            showToast('Error', 'Failed to load user settings', 'error');
-            markInitialized();
-          }
-        } else {
-          initializeApp().catch(console.error);
-        }
-      }
-    },
-    [initializeApp, markInitialized, showToast],
-  );
+                const user =
+                    await authProvider.getCurrentUser();
 
-  useEffect(() => {
-    mountedRef.current = true;
-    initializeApp().catch(console.error);
+                if (!mountedRef.current) {
+                    return;
+                }
 
-    return () => {
-      mountedRef.current = false;
+                if (!user) {
+
+                    await authProvider.clearAuthToken();
+
+                    setAppState((prev) => ({
+                        ...prev,
+                        loading: false,
+                    }));
+
+                    return;
+                }
+
+                setAppState((prev) => ({
+                    ...prev,
+                    user,
+                }));
+
+                window.electronAPI
+                    ?.setSubscriptionLevel(
+                        user.subscription.level,
+                    )
+                    .catch(console.error);
+
+                const token =
+                    await authProvider.getAuthToken();
+
+                if (!token) {
+
+                    setAppState((prev) => ({
+                        ...prev,
+                        user: null,
+                        loading: false,
+                    }));
+
+                    return;
+                }
+
+                try {
+
+                    await getStorageProvider(
+                        user.subscription.level,
+                    ).getSettings();
+
+                    if (!mountedRef.current) {
+                        return;
+                    }
+
+                    markInitialized();
+
+                } catch (settingsError) {
+
+                    if (!mountedRef.current) {
+                        return;
+                    }
+
+                    console.error(
+                        'Error fetching user settings:',
+                        settingsError,
+                    );
+
+                    showToast(
+                        'Error',
+                        'Failed to load user settings',
+                        'error',
+                    );
+
+                    markInitialized();
+                }
+
+            } catch (error) {
+
+                if (!mountedRef.current) {
+                    return;
+                }
+
+                console.error(
+                    'Initialization error:',
+                    error,
+                );
+
+                const authProvider =
+                    getAuthProvider();
+
+                await authProvider.clearAuthToken();
+
+                setAppState((prev) => ({
+                    ...prev,
+                    user: null,
+                    loading: false,
+                }));
+
+                showToast(
+                    'Error',
+                    'Failed to initialize app',
+                    'error',
+                );
+
+            } finally {
+
+                if (mountedRef.current) {
+
+                    setAppState((prev) => ({
+                        ...prev,
+                        loading: false,
+                    }));
+
+                    initializationRef.current.isInitializing =
+                        false;
+                }
+            }
+
+        }, [markInitialized, showToast]);
+
+    const setUser =
+        useCallback(
+            async (
+                user: AuthenticatedUser | null,
+            ) => {
+
+                if (!mountedRef.current) {
+                    return;
+                }
+
+                setAppState((prev) => ({
+                    ...prev,
+                    user,
+                }));
+
+                if (user) {
+
+                    try {
+
+                        await getStorageProvider(
+                            user.subscription.level,
+                        ).getSettings();
+
+                        markInitialized();
+
+                    } catch (settingsError) {
+
+                        console.error(
+                            'Error fetching user settings:',
+                            settingsError,
+                        );
+
+                        showToast(
+                            'Error',
+                            'Failed to load user settings',
+                            'error',
+                        );
+
+                        markInitialized();
+                    }
+                }
+            },
+            [markInitialized, showToast],
+        );
+
+    useEffect(() => {
+
+        mountedRef.current = true;
+
+        const init = async () => {
+
+            await initializeApp();
+        };
+
+        init().catch(console.error);
+
+        return () => {
+            mountedRef.current = false;
+        };
+
+    }, [initializeApp]);
+
+    return {
+        appState,
+        toastState,
+        setToastState,
+        setUser,
+        showToast,
     };
-  }, [initializeApp]);
-
-  return {
-    appState,
-    toastState,
-    setToastState,
-    setUser,
-    showToast,
-  };
 }
 
 function App() {
-  const { appState, toastState, setToastState, setUser, showToast } = useAppInitialization();
 
-  const loadingSpinner = useMemo(
-    () => (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
-          <p className="text-white/60 text-sm">Loading...</p>
-        </div>
-      </div>
-    ),
-    [],
-  );
+    const {
+        appState,
+        toastState,
+        setToastState,
+        setUser,
+        showToast,
+    } = useAppInitialization();
 
-  if (appState.loading) {
-    return loadingSpinner;
-  }
+    const loadingSpinner =
+        useMemo(
+            () => (
+                <div className="min-h-screen bg-black flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
 
-  return (
-    <ToastProvider>
-      <ToastContext.Provider value={{ showToast }}>
-        <AppModeProvider>
-          {appState.user ? (
-            <AppContent isInitialized={appState.isInitialized} user={appState.user} />
-          ) : (
-            <AuthForm
-              setUser={(user) => {
-                setUser(user).catch(console.error);
-              }}
-            />
-          )}
-          <Toast
-            open={toastState.open}
-            onOpenChange={(open) => setToastState((prev) => ({ ...prev, open }))}
-            variant={toastState.variant}
-            duration={1500}
-          >
-            <ToastTitle>{toastState.title}</ToastTitle>
-            <ToastDescription>{toastState.description}</ToastDescription>
-          </Toast>
-          <ToastViewport />
-        </AppModeProvider>
-      </ToastContext.Provider>
-    </ToastProvider>
-  );
+                        <div className="w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
+
+                        <p className="text-white/60 text-sm">
+                            Loading...
+                        </p>
+
+                    </div>
+                </div>
+            ),
+            [],
+        );
+
+    if (appState.loading) {
+        return loadingSpinner;
+    }
+
+    return (
+        <ToastProvider>
+
+            <ToastContext.Provider
+                value={{ showToast }}
+            >
+
+                <AppModeProvider>
+
+                    {appState.user ? (
+
+                        <AppContent
+                            isInitialized={
+                                appState.isInitialized
+                            }
+                            user={appState.user}
+                        />
+
+                    ) : (
+
+                        <AuthForm
+                            setUser={(user) => {
+                                setUser(user).catch(
+                                    console.error,
+                                );
+                            }}
+                        />
+                    )}
+
+                    <Toast
+                        open={toastState.open}
+                        onOpenChange={(open) =>
+                            setToastState((prev) => ({
+                                ...prev,
+                                open,
+                            }))
+                        }
+                        variant={toastState.variant}
+                        duration={1500}
+                    >
+
+                        <ToastTitle>
+                            {toastState.title}
+                        </ToastTitle>
+
+                        <ToastDescription>
+                            {toastState.description}
+                        </ToastDescription>
+
+                    </Toast>
+
+                    <ToastViewport />
+
+                </AppModeProvider>
+
+            </ToastContext.Provider>
+
+        </ToastProvider>
+    );
 }
 
 export default App;

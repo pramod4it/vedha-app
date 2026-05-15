@@ -1,11 +1,14 @@
 import { AppMode } from '../../shared/api';
+
 import type { AppModeProcessor } from './AppModeProcessor';
+
 import { AppModeProcessorFactory } from './AppModeProcessorFactory';
-import { LeetCodeProcessor } from './LeetCodeProcessor';
+
 import { LiveInterviewProcessor } from './LiveInterviewProcessor';
 
 jest.mock('../../shared/constants', () => ({
   API_BASE_URL: 'http://localhost:3000',
+
   isSelfHosted: jest.fn(() => false),
 }));
 
@@ -18,65 +21,97 @@ function createFactory(): AppModeProcessorFactory {
 describe('AppModeProcessorFactory', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (AppModeProcessorFactory as any).instance = null;
+
+    (AppModeProcessorFactory as any).instance =
+        null;
   });
 
   describe('getInstance', () => {
-    test('WHEN getInstance is called twice THEN it returns the same singleton', () => {
-      const a = AppModeProcessorFactory.getInstance();
-      const b = AppModeProcessorFactory.getInstance();
+    test(
+        'WHEN getInstance is called twice THEN it returns the same singleton',
 
-      // Assert
-      expect(a).toBe(b);
-    });
+        () => {
+          const a =
+              AppModeProcessorFactory.getInstance();
+
+          const b =
+              AppModeProcessorFactory.getInstance();
+
+          expect(a).toBe(b);
+        },
+    );
   });
 
   describe('getProcessor', () => {
-    test('WHEN appMode is LIVE_INTERVIEW THEN it returns LiveInterviewProcessor', () => {
-      const factory = createFactory();
+    test(
+        'WHEN appMode is LIVE_INTERVIEW THEN it returns LiveInterviewProcessor',
 
-      // Act
-      const processor = factory.getProcessor(AppMode.LIVE_INTERVIEW);
+        () => {
+          const factory =
+              createFactory();
 
-      // Assert
-      expect(processor).toBeInstanceOf(LiveInterviewProcessor);
-    });
+          const processor =
+              factory.getProcessor(
+                  AppMode.LIVE_INTERVIEW,
+              );
 
-    test('WHEN appMode is LEETCODE_SOLVER THEN it returns LeetCodeProcessor', () => {
-      const factory = createFactory();
+          expect(processor)
+              .toBeInstanceOf(
+                  LiveInterviewProcessor,
+              );
+        },
+    );
 
-      // Act
-      const processor = factory.getProcessor(AppMode.LEETCODE_SOLVER);
+    test(
+        'WHEN appMode is unknown THEN it falls back to LiveInterviewProcessor',
 
-      // Assert
-      expect(processor).toBeInstanceOf(LeetCodeProcessor);
-    });
+        () => {
+          const factory =
+              createFactory();
 
-    test('WHEN appMode is unknown THEN it falls back to LiveInterviewProcessor', () => {
-      const factory = createFactory();
+          const processor =
+              factory.getProcessor(
+                  'unknown-mode' as AppMode,
+              );
 
-      // Act
-      const processor = factory.getProcessor('unknown-mode' as AppMode);
-
-      // Assert
-      expect(processor).toBeInstanceOf(LiveInterviewProcessor);
-    });
+          expect(processor)
+              .toBeInstanceOf(
+                  LiveInterviewProcessor,
+              );
+        },
+    );
   });
 
   describe('registerProcessor', () => {
-    test('WHEN a custom processor is registered THEN getProcessor returns it', () => {
-      const factory = createFactory();
-      const customProcessor: AppModeProcessor = {
-        processSolve: jest.fn(),
-        processDebug: jest.fn(),
-      };
+    test(
+        'WHEN a custom processor is registered THEN getProcessor returns it',
 
-      // Act
-      factory.registerProcessor(AppMode.LEETCODE_SOLVER, customProcessor);
-      const result = factory.getProcessor(AppMode.LEETCODE_SOLVER);
+        () => {
+          const factory =
+              createFactory();
 
-      // Assert
-      expect(result).toBe(customProcessor);
-    });
+          const customProcessor: AppModeProcessor =
+              {
+                processSolve:
+                    jest.fn(),
+
+                processDebug:
+                    jest.fn(),
+              };
+
+          factory.registerProcessor(
+              'custom-mode' as AppMode,
+              customProcessor,
+          );
+
+          const result =
+              factory.getProcessor(
+                  'custom-mode' as AppMode,
+              );
+
+          expect(result)
+              .toBe(customProcessor);
+        },
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { API_ENDPOINTS, type AuthenticatedUser, type AuthResponse } from '@shared/api.ts';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+export { getAuthProvider } from './auth/index';
 
 export const authService = {
   async login(email: string, password: string): Promise<AuthResponse> {

@@ -1,6 +1,5 @@
 import { AppMode } from '../../shared/api';
 import type { AppModeProcessor } from './AppModeProcessor';
-import { LeetCodeProcessor } from './LeetCodeProcessor';
 import { LiveInterviewProcessor } from './LiveInterviewProcessor';
 
 export class AppModeProcessorFactory {
@@ -10,7 +9,6 @@ export class AppModeProcessorFactory {
   private constructor() {
     // Initialize processors
     this.processors.set(AppMode.LIVE_INTERVIEW, new LiveInterviewProcessor());
-    this.processors.set(AppMode.LEETCODE_SOLVER, new LeetCodeProcessor());
   }
 
   public static getInstance(): AppModeProcessorFactory {

@@ -1,32 +1,30 @@
-import { SubscriptionLevel } from '@shared/api.ts';
-import { isSelfHosted } from '@shared/constants.ts';
-import { ApiStorageProvider } from './ApiStorageProvider';
+import { SubscriptionLevel } from '../../../shared/api';
+
 import { LocalStorageProvider } from './LocalStorageProvider';
+
 import type { IStorageProvider } from './StorageProvider';
 
 export * from './StorageProvider';
 
-let storageProvider: IStorageProvider | null = null;
-let currentSubscriptionLevel: SubscriptionLevel | null = null;
+let storageProvider: IStorageProvider | null =
+    null;
 
-export const getStorageProvider = (subscriptionLevel?: SubscriptionLevel): IStorageProvider => {
-  const level = subscriptionLevel ?? currentSubscriptionLevel;
-  const useLocal = isSelfHosted() || level === SubscriptionLevel.FREE;
+export const getStorageProvider =
+    (
+        _subscriptionLevel?: SubscriptionLevel,
+    ): IStorageProvider => {
 
-  // If subscription level changed, reset provider
-  if (level && level !== currentSubscriptionLevel) {
-    currentSubscriptionLevel = level;
-    storageProvider = null;
-  }
+        if (!storageProvider) {
 
-  if (!storageProvider) {
-    storageProvider = useLocal ? new LocalStorageProvider() : new ApiStorageProvider();
-  }
+            storageProvider =
+                new LocalStorageProvider();
+        }
 
-  return storageProvider;
-};
+        return storageProvider;
+    };
 
-export const resetStorageProvider = (): void => {
-  storageProvider = null;
-  currentSubscriptionLevel = null;
-};
+export const resetStorageProvider =
+    (): void => {
+
+        storageProvider = null;
+    };

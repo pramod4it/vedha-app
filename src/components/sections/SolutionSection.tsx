@@ -2,29 +2,47 @@ import type React from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAppModeLayout } from '../../layouts';
 import CodeBlock from '../Solutions/CodeBlock';
+import MermaidDiagram from '../Solutions/MermaidDiagram';
 import SolutionContent from '../Solutions/SolutionContent';
 import ThoughtsList from '../Solutions/ThoughtsList';
 
 interface SolutionSectionProps {
   solutionData?: string | null;
+  answerTextData?: string | null;
+  diagramData?: string | null;
   thoughtsData?: string[] | null;
-  timeComplexityData?: string | null;
-  spaceComplexityData?: string | null;
+  followUpQuestions?: string[] | null;
+  sayThis?: string | null;
+  example?: string | null;
   title?: string;
   isGenerating?: boolean;
   className?: string;
 }
 
+function formatAnswerLines(answer: string): string[] {
+  return answer
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .trim()
+        .replace(/^[-*•]\s*/, '')
+        .replace(/^\d+[.)]\s*/, ''),
+    )
+    .filter(Boolean);
+}
+
 const SolutionSectionInner: React.FC<SolutionSectionProps> = ({
   solutionData,
+  answerTextData,
+  diagramData,
   thoughtsData,
-  timeComplexityData,
-  spaceComplexityData,
+  followUpQuestions,
+  sayThis,
+  example,
   title = 'Solution',
   isGenerating = false,
   className = '',
 }) => {
-  const { isLeetcodeSolver } = useAppModeLayout();
   const { solutionLanguage } = useSettings();
   const currentLanguage = solutionLanguage;
 
@@ -36,55 +54,84 @@ const SolutionSectionInner: React.FC<SolutionSectionProps> = ({
     );
   }
 
-  if (!solutionData && !thoughtsData) {
+  if (
+    !solutionData &&
+    !answerTextData &&
+    !diagramData &&
+    !thoughtsData &&
+    !followUpQuestions?.length &&
+    !sayThis &&
+    !example
+  ) {
     return null;
-  }
-
-  const complexityContent = (timeComplexityData || spaceComplexityData) && (
-    <div className="space-y-2 font-normal">
-      {timeComplexityData && (
-        <div className="flex items-start gap-2">
-          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-          <div>
-            <span className="font-medium">Time:</span> {timeComplexityData}
-          </div>
-        </div>
-      )}
-      {spaceComplexityData && (
-        <div className="flex items-start gap-2">
-          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-          <div>
-            <span className="font-medium">Space:</span> {spaceComplexityData}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  if (isLeetcodeSolver) {
-    return (
-      <div className={className}>
-        {solutionData && (
-          <SolutionContent
-            title={title}
-            content={
-              <CodeBlock code={solutionData} language={currentLanguage} showCopyButton={true} />
-            }
-            isLoading={!solutionData}
-            type="code"
-          />
-        )}
-      </div>
-    );
   }
 
   return (
     <div className={`space-y-4 ${className}`}>
       {thoughtsData && (
         <SolutionContent
-          title={title === 'Solution' ? 'My Thoughts' : 'What I Changed'}
+          title={title === 'Solution' ? 'How I would explain it' : 'What I changed'}
           content={<ThoughtsList thoughts={thoughtsData} />}
           isLoading={!thoughtsData}
+        />
+      )}
+
+      {answerTextData && (
+        <SolutionContent
+          title="Answer"
+          content={
+            <ul className="list-disc space-y-2 pl-5 text-zinc-100">
+              {formatAnswerLines(answerTextData).map((line, index) => (
+                <li
+                  key={`${line}-${index}`}
+                  className="whitespace-pre-wrap leading-6"
+                >
+                  {line}
+                </li>
+              ))}
+            </ul>
+          }
+          isLoading={!answerTextData}
+        />
+      )}
+
+      {sayThis && (
+        <SolutionContent
+          title="Say this"
+          content={<p className="whitespace-pre-wrap leading-6 text-zinc-100">{sayThis}</p>}
+          isLoading={!sayThis}
+        />
+      )}
+
+      {example && (
+        <SolutionContent
+          title="Example"
+          content={<p className="whitespace-pre-wrap leading-6 text-zinc-100">{example}</p>}
+          isLoading={!example}
+        />
+      )}
+
+      {followUpQuestions && followUpQuestions.length > 0 && (
+        <SolutionContent
+          title="Possible follow-ups"
+          content={
+            <ul className="list-disc space-y-2 pl-5 text-zinc-100">
+              {followUpQuestions.map((question, index) => (
+                <li key={`${question}-${index}`} className="whitespace-pre-wrap leading-6">
+                  {question}
+                </li>
+              ))}
+            </ul>
+          }
+          isLoading={false}
+        />
+      )}
+
+      {diagramData && (
+        <SolutionContent
+          title="Diagram"
+          content={<MermaidDiagram chart={diagramData} />}
+          isLoading={!diagramData}
         />
       )}
 
@@ -99,13 +146,6 @@ const SolutionSectionInner: React.FC<SolutionSectionProps> = ({
         />
       )}
 
-      {complexityContent && (
-        <SolutionContent
-          title="Complexity"
-          content={complexityContent}
-          isLoading={!timeComplexityData && !spaceComplexityData}
-        />
-      )}
     </div>
   );
 };

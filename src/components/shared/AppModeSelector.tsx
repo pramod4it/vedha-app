@@ -5,7 +5,6 @@ import { AppModeHintBox } from './AppModeHintBox';
 
 const APP_MODE_LABELS: Record<AppMode, string> = {
   [AppMode.LIVE_INTERVIEW]: 'Live Interview',
-  [AppMode.LEETCODE_SOLVER]: 'Leetcode Solver',
 };
 
 interface AppModeSelectorProps {

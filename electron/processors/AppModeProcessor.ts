@@ -1,7 +1,5 @@
 import type {
   DebugResponse,
-  LeetCodeDebugResponse,
-  LeetCodeSolveResponse,
   SolveResponse,
 } from '../../shared/api';
 
@@ -18,14 +16,23 @@ export interface ProcessingParams {
   signal: AbortSignal;
   headers: Record<string, string>;
   conversationId?: string;
+  companyName?: string;
+  interviewerName?: string;
+  interviewRound?: string;
+  answerDepth?: string;
+  targetRole?: string;
+  techStack?: string;
+  resumeSummary?: string;
+  jobDescription?: string;
+  extraInstructions?: string;
 }
 
 export interface AppModeProcessor {
   processSolve(
     params: ProcessingParams,
-  ): Promise<ProcessingResult<SolveResponse | LeetCodeSolveResponse>>;
+  ): Promise<ProcessingResult<SolveResponse>>;
 
   processDebug(
     params: ProcessingParams,
-  ): Promise<ProcessingResult<DebugResponse | LeetCodeDebugResponse>>;
+  ): Promise<ProcessingResult<DebugResponse>>;
 }

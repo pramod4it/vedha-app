@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, shell } from 'electron';
-import type { AppMode, SubscriptionLevel } from '../shared/api';
+import type { AppMode, InterviewMetadata, SubscriptionLevel } from '../shared/api';
 import { IPC_EVENTS } from '../shared/constants';
 
 // Types for the exposed Electron API
@@ -70,6 +70,14 @@ interface ElectronAPI {
     error?: string;
   }>;
   setAppMode: (appMode: AppMode) => Promise<{ success: boolean; error?: string }>;
+  setInterviewMetadata: (
+    metadata: InterviewMetadata,
+  ) => Promise<{ success: boolean; error?: string }>;
+  getInterviewMetadata: () => Promise<{
+    success: boolean;
+    metadata?: InterviewMetadata | null;
+    error?: string;
+  }>;
   writeText: (text: string) => Promise<{ success: boolean; error?: string }>;
   copyAndRefreshWindow: (
     text: string,
@@ -240,6 +248,9 @@ const electronAPI = {
   authSetLastUsedEmail: (email: string) => ipcRenderer.invoke('auth-set-last-used-email', email),
   authGetLastUsedEmail: () => ipcRenderer.invoke('auth-get-last-used-email'),
   setAppMode: (appMode: AppMode) => ipcRenderer.invoke(IPC_EVENTS.APP_MODE.CHANGE, appMode),
+  setInterviewMetadata: (metadata: InterviewMetadata) =>
+    ipcRenderer.invoke('set-interview-metadata', metadata),
+  getInterviewMetadata: () => ipcRenderer.invoke('get-interview-metadata'),
   getAppMode: () => ipcRenderer.invoke('get-app-mode'),
   getReadableVarNames: () => ipcRenderer.invoke('get-readable-var-names'),
   setReadableVarNames: (value: boolean) => ipcRenderer.invoke('set-readable-var-names', value),

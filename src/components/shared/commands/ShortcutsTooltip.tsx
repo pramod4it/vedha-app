@@ -1,8 +1,8 @@
 import type { AppMode } from '@shared/api.ts';
-import { IPC_EVENTS } from '@shared/constants.ts';
 import type React from 'react';
-import { sendToElectron } from '../../../utils/electron';
+import { AnswerDepthSelector } from '../AnswerDepthSelector';
 import { AppModeSelector } from '../AppModeSelector';
+import { InterviewerAudioTest } from '../InterviewerAudioTest';
 import { LanguageSelector } from '../LanguageSelector';
 import { LocaleSelector } from '../LocaleSelector.tsx';
 
@@ -22,6 +22,7 @@ interface ShortcutsTooltipProps {
   setAppMode: (appMode: AppMode) => void;
   isFree?: boolean;
   userEmail?: string;
+  onClose?: () => void;
 }
 
 const ShortcutsTooltip: React.FC<ShortcutsTooltipProps> = ({
@@ -33,31 +34,31 @@ const ShortcutsTooltip: React.FC<ShortcutsTooltipProps> = ({
   setAppMode,
   isFree,
   userEmail,
+  onClose,
 }) => {
   return (
     <div
       ref={tooltipRef}
-      className={`absolute text-[14px] top-full left-0 mt-2 w-80 transform -translate-x-[calc(50%-12px)] ${className}`}
+      className={`fixed left-1/2 top-16 w-[360px] max-w-[calc(100vw-32px)] -translate-x-1/2 max-h-[calc(100vh-96px)] overflow-y-auto rounded-lg text-[14px] ${className}`}
       style={{ zIndex: 100 }}
     >
-      <div className="absolute -top-2 right-0 w-full h-2" />
       <div className="p-3 text-xs bg-[#1E2530]/80 rounded-lg border border-gray-700 text-gray-100 shadow-lg">
         <div className="space-y-4">
           <h3 className="font-semibold truncate">Keyboard Shortcuts</h3>
           <div className="space-y-3">
             {shortcuts.map(
-              (shortcut, index) =>
+              (shortcut) =>
                 shortcut.condition !== false && (
                   <div
-                    key={index}
+                    key={shortcut.label}
                     className="cursor-default rounded-sm px-2 py-1.5 transition-colors"
                   >
                     <div className="flex items-center justify-between">
                       <span className="truncate font-medium">{shortcut.label}</span>
                       <div className="flex gap-1 shrink-0">
-                        {shortcut.shortcut.map((key, keyIndex) => (
+                        {shortcut.shortcut.map((key) => (
                           <span
-                            key={keyIndex}
+                            key={`${shortcut.label}-${key}`}
                             className="bg-gray-700/50 px-1.5 py-0.5 rounded-sm text-[10px] leading-none font-medium"
                           >
                             {key}
@@ -65,7 +66,7 @@ const ShortcutsTooltip: React.FC<ShortcutsTooltipProps> = ({
                         ))}
                       </div>
                     </div>
-                    <p className="text-[10px] leading-relaxed text-gray-400 truncate mt-1">
+                    <p className="text-[10px] leading-relaxed text-gray-400 mt-1">
                       {shortcut.description}
                     </p>
                   </div>
@@ -80,6 +81,7 @@ const ShortcutsTooltip: React.FC<ShortcutsTooltipProps> = ({
                   FREE
                 </span>
                 <button
+                  type="button"
                   onClick={() => {
                     window.electronAPI
                       .openSubscriptionPortal({ email: userEmail ?? '' })
@@ -94,12 +96,17 @@ const ShortcutsTooltip: React.FC<ShortcutsTooltipProps> = ({
 
             <AppModeSelector currentAppMode={currentAppMode} setAppMode={setAppMode} />
 
+            <AnswerDepthSelector />
+
+            <InterviewerAudioTest />
+
             <LanguageSelector />
 
             <LocaleSelector />
 
             <div className="flex items-center justify-between">
               <button
+                type="button"
                 onClick={onSignOut}
                 className="flex items-center gap-2 text-[11px] font-medium text-red-400 hover:text-red-300 transition-colors"
               >
@@ -122,7 +129,10 @@ const ShortcutsTooltip: React.FC<ShortcutsTooltipProps> = ({
                 Log Out
               </button>
               <button
-                onClick={() => sendToElectron(IPC_EVENTS.TOOLTIP.CLOSE_CLICK)}
+                type="button"
+                onClick={() => {
+                  onClose?.();
+                }}
                 className="flex items-center gap-2 text-[11px] font-medium text-gray-400 hover:text-gray-300 transition-colors"
               >
                 <div className="w-4 h-4 flex items-center justify-center">

@@ -25,11 +25,11 @@ describe('LocalStorageProvider', () => {
 
     test('WHEN settings are stored THEN it returns parsed values', async () => {
       localStorage.setItem(
-        LOCAL_STORAGE_KEYS.EZZI_SETTINGS,
+        LOCAL_STORAGE_KEYS.VEDHA_SETTINGS,
         JSON.stringify({
           solutionLanguage: ProgrammingLanguage.JavaScript,
           userLanguage: UserLanguage.ES_ES,
-          appMode: AppMode.LEETCODE_SOLVER,
+          appMode: AppMode.LIVE_INTERVIEW,
         }),
       );
 
@@ -40,12 +40,12 @@ describe('LocalStorageProvider', () => {
       expect(settings).toEqual({
         solutionLanguage: ProgrammingLanguage.JavaScript,
         userLanguage: UserLanguage.ES_ES,
-        appMode: AppMode.LEETCODE_SOLVER,
+        appMode: AppMode.LIVE_INTERVIEW,
       });
     });
 
     test('WHEN stored payload is malformed THEN it falls back to defaults', async () => {
-      localStorage.setItem(LOCAL_STORAGE_KEYS.EZZI_SETTINGS, '{not-json');
+      localStorage.setItem(LOCAL_STORAGE_KEYS.VEDHA_SETTINGS, '{not-json');
 
       // Act
       const settings = await provider.getSettings();
@@ -62,7 +62,7 @@ describe('LocalStorageProvider', () => {
   describe('updateSettings', () => {
     test('WHEN partial update applied THEN it merges with existing values', async () => {
       localStorage.setItem(
-        LOCAL_STORAGE_KEYS.EZZI_SETTINGS,
+        LOCAL_STORAGE_KEYS.VEDHA_SETTINGS,
         JSON.stringify({
           solutionLanguage: ProgrammingLanguage.Python,
           userLanguage: UserLanguage.EN_US,
@@ -74,7 +74,7 @@ describe('LocalStorageProvider', () => {
       await provider.updateSettings({ solutionLanguage: ProgrammingLanguage.Go });
 
       // Assert
-      const persisted = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.EZZI_SETTINGS) ?? '{}');
+      const persisted = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.VEDHA_SETTINGS) ?? '{}');
       expect(persisted).toEqual({
         solutionLanguage: ProgrammingLanguage.Go,
         userLanguage: UserLanguage.EN_US,
@@ -108,11 +108,11 @@ describe('LocalStorageProvider', () => {
   describe('setAppMode', () => {
     test('WHEN setAppMode is called THEN getAppMode returns it', async () => {
       // Act
-      await provider.setAppMode(AppMode.LEETCODE_SOLVER);
+      await provider.setAppMode(AppMode.LIVE_INTERVIEW);
       const mode = await provider.getAppMode();
 
       // Assert
-      expect(mode).toBe(AppMode.LEETCODE_SOLVER);
+      expect(mode).toBe(AppMode.LIVE_INTERVIEW);
     });
   });
 });

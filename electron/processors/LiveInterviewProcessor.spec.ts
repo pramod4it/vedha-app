@@ -88,7 +88,7 @@ describe('LiveInterviewProcessor', () => {
       // Assert
       expect(result).toEqual({
         success: false,
-        error: 'Upgrade to Pro to generate solutions. Visit getezzi.com to upgrade your plan.',
+        error: 'Upgrade to Pro to generate solutions. Visit vedha.com to upgrade your plan.',
       });
     });
 
@@ -139,7 +139,7 @@ describe('LiveInterviewProcessor', () => {
 
       // Assert
       expect(result.error).toBe(
-        'Upgrade to Pro to generate solutions. Visit getezzi.com to upgrade your plan.',
+        'Upgrade to Pro to generate solutions. Visit vedha.com to upgrade your plan.',
       );
     });
 

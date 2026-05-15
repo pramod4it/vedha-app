@@ -1,5 +1,5 @@
 {
-  "name": "ezzi",
+  "name": "vedha",
   "version": "1.0.14",
   "main": "dist-electron/main.js",
   "packageManager": "pnpm@11.0.9",
@@ -18,15 +18,15 @@
     "lint:ci": "biome check --diagnostic-level=error --reporter=summary .",
     "dev:watch-electron": "cross-env NODE_ENV=development tsc -w -p tsconfig.electron.json",
     "dev:serve-renderer": "cross-env NODE_ENV=development vite",
-    "dev": "concurrently \"pnpm:dev:watch-electron\" \"pnpm:dev:serve-renderer\"",
+    "dev": "concurrently \"npx pnpm run dev:watch-electron\" \"npx pnpm run dev:serve-renderer\"",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch --passWithNoTests",
     "test:electron": "jest --config=jest.electron.config.js --passWithNoTests",
     "test:renderer": "jest --config=jest.renderer.config.js --passWithNoTests"
   },
   "build": {
-    "appId": "com.getezzi.ezzi-app",
-    "productName": "Ezzi",
+    "appId": "com.vedha.vedha-app",
+    "productName": "Vedha",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
@@ -51,7 +51,7 @@
           ]
         }
       ],
-      "artifactName": "Ezzi-Mac-${arch}-${version}.${ext}",
+      "artifactName": "Vedha-Mac-${arch}-${version}.${ext}",
       "icon": "assets/icons/mac/icon-256x256.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -60,9 +60,9 @@
       "identity": "Developer ID Application",
       "type": "distribution",
       "protocols": {
-        "name": "ezzi-protocol",
+        "name": "vedha-protocol",
         "schemes": [
-          "ezzi"
+          "vedha"
         ]
       },
       "notarize": true
@@ -72,11 +72,11 @@
         "nsis"
       ],
       "icon": "assets/icons/win/icon-256x256.ico",
-      "artifactName": "Ezzi-Windows-${version}.${ext}",
+      "artifactName": "Vedha-Windows-${version}.${ext}",
       "protocols": {
-        "name": "ezzi-protocol",
+        "name": "vedha-protocol",
         "schemes": [
-          "ezzi"
+          "vedha"
         ]
       }
     },
@@ -85,19 +85,19 @@
         "AppImage"
       ],
       "icon": "assets/icons/png/icon-256x256.png",
-      "artifactName": "Ezzi-Linux-${version}.${ext}",
+      "artifactName": "Vedha-Linux-${version}.${ext}",
       "protocols": {
-        "name": "ezzi-protocol",
+        "name": "vedha-protocol",
         "schemes": [
-          "ezzi"
+          "vedha"
         ]
       }
     },
     "publish": [
       {
         "provider": "github",
-        "owner": "GetEzzi",
-        "repo": "ezzi-app",
+        "owner": "vedha",
+        "repo": "vedha-app",
         "private": false,
         "releaseType": "release"
       }
@@ -128,13 +128,13 @@
   "author": "dkhorev",
   "license": "MIT",
   "description": "Invisible overlay UI for DSA interviews.",
-  "homepage": "https://github.com/GetEzzi/ezzi-app",
+  "homepage": "https://github.com/vedha/vedha-app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GetEzzi/ezzi-app.git"
+    "url": "https://github.com/vedha/vedha-app.git"
   },
   "bugs": {
-    "url": "https://github.com/GetEzzi/ezzi-app/issues"
+    "url": "https://github.com/vedha/vedha-app/issues"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -146,6 +146,7 @@
     "dotenv": "^17.3.1",
     "electron-store": "^11.0.2",
     "lucide-react": "^1.14.0",
+    "mermaid": "^11.15.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-syntax-highlighter": "^16.1.1",

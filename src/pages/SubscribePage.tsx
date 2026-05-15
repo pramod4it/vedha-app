@@ -59,7 +59,7 @@ export default function SubscribePage({ user }: SubscribePageProps) {
         <div className="w-full max-w-[440px] space-y-5 p-3 mt-8">
           <div className="flex flex-col items-center justify-center space-y-4">
             <img src={logoSrc} alt="Logo" className="w-16 h-16 mb-2" />
-            <h2 className="text-lg font-semibold text-gray-100">Welcome to Ezzi</h2>
+            <h2 className="text-lg font-semibold text-gray-100">Welcome to Vedha</h2>
             <p className="text-gray-400 text-sm text-center">
               To start cracking code interviews, you'll need to upgrade your plan.
             </p>

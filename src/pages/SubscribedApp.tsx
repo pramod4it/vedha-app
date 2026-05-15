@@ -1,4 +1,4 @@
-import { type AuthenticatedUser, SubscriptionLevel } from '@shared/api.ts';
+import { type AuthenticatedUser, type SolveResponse, SubscriptionLevel } from '@shared/api.ts';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScreenshotProvider } from '../contexts/ScreenshotContext';
@@ -6,6 +6,7 @@ import { SettingsProvider } from '../contexts/SettingsContext';
 import { SolutionProvider, useSolutionContext } from '../contexts/SolutionContext';
 import { SubscriptionProvider } from '../contexts/SubscriptionContext';
 import { useToast } from '../contexts/toast';
+import { useRealtimeAssistant } from '../hooks/useRealtimeAssistant';
 import { AppModeLayoutProvider } from '../layouts';
 import { QueuePage, SolutionsPage } from '.';
 
@@ -14,10 +15,82 @@ interface SubscribedAppProps {
 }
 
 const SubscribedAppContent: React.FC = () => {
-  const { clearAll } = useSolutionContext();
+  const { clearAll, setSolution } = useSolutionContext();
   const [view, setView] = useState<'queue' | 'solutions' | 'debug'>('queue');
   const containerRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
+  const {
+    start,
+    response,
+    error,
+    audioEnabled,
+    setAudioEnabled,
+    submitManualQuestion,
+  } = useRealtimeAssistant();
+  const lastRealtimeResponseRef = useRef('');
+
+  useEffect(() => {
+    start().catch(console.error);
+  }, [start]);
+
+  useEffect(() => {
+    if (error) {
+      showToast('Audio Detection', error, 'error');
+    }
+  }, [error, showToast]);
+
+  useEffect(() => {
+    if (!response || response === lastRealtimeResponseRef.current) {
+      return;
+    }
+
+    lastRealtimeResponseRef.current = response;
+
+    try {
+      const parsed = JSON.parse(response) as Partial<SolveResponse>;
+      const hasContent = Boolean(
+        parsed.code ||
+          parsed.answerText ||
+          parsed.diagramMermaid ||
+          parsed.problemStatement ||
+          (parsed.thoughts && parsed.thoughts.length > 0),
+      );
+
+      if (parsed.messageType === 'CLARIFICATION_REQUEST') {
+        return;
+      }
+
+      if (hasContent) {
+        setSolution({
+          thoughts: parsed.thoughts || [],
+          code: parsed.code || '',
+          answerText: parsed.answerText || '',
+          diagramMermaid: parsed.diagramMermaid || '',
+          messageType: parsed.messageType || 'NEW_QUESTION',
+          parentQuestionId: parsed.parentQuestionId,
+          answerDepth: parsed.answerDepth,
+          timeComplexity: parsed.timeComplexity || 'Unknown',
+          spaceComplexity: parsed.spaceComplexity || 'Unknown',
+          problemStatement: parsed.problemStatement || '',
+          conversationId: parsed.conversationId || crypto.randomUUID(),
+          followUpQuestions: parsed.followUpQuestions || [],
+          sayThis: parsed.sayThis || '',
+          example: parsed.example || '',
+        });
+        setView('solutions');
+      }
+    } catch {
+      setSolution({
+        thoughts: ['The interviewer asked a question. Here is a concise answer from the backend.'],
+        code: response,
+        timeComplexity: 'N/A',
+        spaceComplexity: 'N/A',
+        problemStatement: response,
+        conversationId: crypto.randomUUID(),
+      });
+      setView('solutions');
+    }
+  }, [response, setSolution]);
 
   // Dynamically update the window size
   useEffect(() => {
@@ -90,7 +163,12 @@ const SubscribedAppContent: React.FC = () => {
         {view === 'queue' ? (
           <QueuePage setView={setView} />
         ) : view === 'solutions' ? (
-          <SolutionsPage setView={setView} />
+          <SolutionsPage
+            setView={setView}
+            audioEnabled={audioEnabled}
+            onAudioEnabledChange={setAudioEnabled}
+            onManualQuestionSubmit={submitManualQuestion}
+          />
         ) : null}
       </div>
     </AppModeLayoutProvider>

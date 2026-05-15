@@ -92,6 +92,7 @@ export interface IIpcHandlerDeps {
   getAppMode: () => AppMode;
   setAppMode: (appMode: AppMode) => void;
   toggleMainWindow: () => void;
+  hideMainWindow: () => void;
   clearQueues: () => void;
   setView: (view: 'queue' | 'solutions' | 'debug') => void;
   moveWindowLeft: () => void;
@@ -146,13 +147,13 @@ function initializeHelpers() {
 }
 
 if (process.platform === 'darwin') {
-  app.setAsDefaultProtocolClient('ezzi');
+  app.setAsDefaultProtocolClient('vedha');
 } else {
-  app.setAsDefaultProtocolClient('ezzi', process.execPath, [path.resolve(process.argv[1] || '')]);
+  app.setAsDefaultProtocolClient('vedha', process.execPath, [path.resolve(process.argv[1] || '')]);
 }
 
 if (process.defaultApp && process.argv.length >= 2) {
-  app.setAsDefaultProtocolClient('ezzi', process.execPath, [path.resolve(process.argv[1])]);
+  app.setAsDefaultProtocolClient('vedha', process.execPath, [path.resolve(process.argv[1])]);
 }
 
 // Force Single Instance Lock
@@ -201,6 +202,7 @@ async function createWindow(): Promise<void> {
   const baseWindowSettings: Electron.BrowserWindowConstructorOptions = {
     ...windowConfig.baseSettings,
     ...windowsSpecificOptions,
+    show: false,
     x: state.currentX,
     y: 50,
     webPreferences: {
@@ -214,10 +216,20 @@ async function createWindow(): Promise<void> {
   };
 
   state.mainWindow = new BrowserWindow(baseWindowSettings);
+  enforceCaptureProtection();
 
   // Add more detailed logging for window events
   state.mainWindow.webContents.on('did-finish-load', () => {
     console.log('Window finished loading');
+    enforceCaptureProtection();
+    if (state.mainWindow && !state.mainWindow.isVisible()) {
+      state.mainWindow.showInactive();
+    }
+  });
+
+  state.mainWindow.once('ready-to-show', () => {
+    enforceCaptureProtection();
+    state.mainWindow?.showInactive();
   });
 
   state.mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
@@ -254,7 +266,7 @@ async function createWindow(): Promise<void> {
     return { action: 'allow' };
   });
 
-  state.mainWindow.setContentProtection(true);
+  enforceCaptureProtection();
   state.mainWindow.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true,
   });
@@ -282,6 +294,7 @@ async function createWindow(): Promise<void> {
   state.mainWindow.on('closed', handleWindowClosed);
   state.mainWindow.on('focus', handleWindowFocus);
   state.mainWindow.on('blur', handleWindowBlur);
+  state.mainWindow.on('show', enforceCaptureProtection);
 
   // Initialize window state
   const bounds = state.mainWindow.getBounds();
@@ -357,6 +370,8 @@ function preserveWindowConfiguration(): void {
       );
     }
 
+    enforceCaptureProtection();
+
     // Cross-platform: Re-apply critical frameless window settings
     // Note: The frame and titleBarStyle are set at window creation and cannot be changed dynamically
     // But we can re-apply other settings that might get overridden by the OS
@@ -365,6 +380,19 @@ function preserveWindowConfiguration(): void {
   } catch (error) {
     console.error('Error preserving window configuration:', error);
   }
+}
+
+function enforceCaptureProtection(): void {
+  const win = state.mainWindow;
+
+  if (!win || win.isDestroyed()) {
+    return;
+  }
+
+  // Ask the OS to exclude the overlay from screenshots and screen sharing.
+  // Electron maps this to native capture exclusion where the platform supports it.
+  win.setContentProtection(true);
+  win.setSkipTaskbar(true);
 }
 
 function hideMainWindow(): void {
@@ -414,6 +442,8 @@ function showMainWindow(): void {
     } else {
       configFactory.applyShowBehavior(win, state.appMode);
     }
+
+    enforceCaptureProtection();
 
     state.isWindowVisible = true;
 
@@ -494,7 +524,8 @@ function setWindowDimensions(width: number, height: number, source: string): voi
     const workArea = primaryDisplay.workAreaSize;
 
     const baseWidth = 500;
-    const maxWidth = Math.floor(baseWidth * 1.5);
+    const maxWidth = workArea.width;
+    const maxHeight = Math.max(420, workArea.height - 24);
 
     console.log(
       '[setWindowDimensions] currentBounds:',
@@ -523,9 +554,9 @@ function setWindowDimensions(width: number, height: number, source: string): voi
       );
     }
 
-    const effectiveContentWidth = Math.max(baseWidth - 32, state.codeDesiredWidth);
+    const effectiveContentWidth = Math.max(baseWidth - 32, width, state.codeDesiredWidth);
     const newWidth = Math.min(effectiveContentWidth + 32, maxWidth);
-    const newHeight = Math.ceil(height);
+    const newHeight = Math.min(Math.ceil(height), maxHeight);
 
     console.log(
       '[setWindowDimensions] effectiveContentWidth:',
@@ -547,9 +578,9 @@ function setWindowDimensions(width: number, height: number, source: string): voi
     );
     console.log('[setWindowDimensions] newHeight:', newHeight);
 
-    // Only adjust position if window would be completely off-screen
-    let adjustedX = currentX;
-    let adjustedY = currentY;
+    // Keep the resized overlay inside the visible work area when it grows.
+    let adjustedX = Math.min(Math.max(0, currentX), Math.max(0, workArea.width - newWidth));
+    let adjustedY = Math.min(Math.max(0, currentY), Math.max(0, workArea.height - newHeight));
     if (isWindowCompletelyOffScreen(currentX, currentY, newWidth, newHeight)) {
       adjustedX = Math.max(0, (workArea.width - newWidth) / 2);
       adjustedY = Math.max(0, (workArea.height - newHeight) / 2);
@@ -564,6 +595,8 @@ function setWindowDimensions(width: number, height: number, source: string): voi
       width: newWidth,
       height: newHeight,
     });
+
+    enforceCaptureProtection();
 
     state.currentX = adjustedX;
     state.currentY = adjustedY;
@@ -616,6 +649,7 @@ async function initializeApp() {
       getAppMode,
       setAppMode,
       toggleMainWindow,
+      hideMainWindow,
       clearQueues,
       setView,
       moveWindowLeft: () =>

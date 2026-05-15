@@ -1,8 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
+import type { DebugResponse } from '@shared/api.ts';
 import { useSolutionContext } from '../contexts/SolutionContext';
 import { useToast } from '../contexts/toast';
 import { useScreenshotEvents } from './useScreenshotEvents';
 import { useScreenshots } from './useScreenshots';
+
+type DebugWithApiAliases = DebugResponse & {
+  time_complexity?: string;
+  space_complexity?: string;
+  data?: Partial<DebugWithApiAliases>;
+  solution?: Partial<DebugWithApiAliases>;
+};
+
+function getTimeComplexity(solution: DebugWithApiAliases): string | null {
+  return (
+    solution.timeComplexity ||
+    solution.time_complexity ||
+    solution.data?.timeComplexity ||
+    solution.data?.time_complexity ||
+    solution.solution?.timeComplexity ||
+    solution.solution?.time_complexity ||
+    null
+  );
+}
+
+function getSpaceComplexity(solution: DebugWithApiAliases): string | null {
+  return (
+    solution.spaceComplexity ||
+    solution.space_complexity ||
+    solution.data?.spaceComplexity ||
+    solution.data?.space_complexity ||
+    solution.solution?.spaceComplexity ||
+    solution.solution?.space_complexity ||
+    null
+  );
+}
 
 export function useDebug(isProcessing: boolean, setIsProcessing: (processing: boolean) => void) {
   const { showToast } = useToast();
@@ -37,20 +69,13 @@ export function useDebug(isProcessing: boolean, setIsProcessing: (processing: bo
 
   useEffect(() => {
     if (solutionState.newSolution) {
-      setNewCode(solutionState.newSolution.code || null);
+      const solution = solutionState.newSolution as DebugWithApiAliases;
+      setNewCode(solution.code || null);
       setThoughtsData(
-        'thoughts' in solutionState.newSolution ? solutionState.newSolution.thoughts || null : null,
+        'thoughts' in solution ? solution.thoughts || null : null,
       );
-      setTimeComplexityData(
-        'time_complexity' in solutionState.newSolution
-          ? solutionState.newSolution.time_complexity || null
-          : null,
-      );
-      setSpaceComplexityData(
-        'space_complexity' in solutionState.newSolution
-          ? solutionState.newSolution.space_complexity || null
-          : null,
-      );
+      setTimeComplexityData(getTimeComplexity(solution));
+      setSpaceComplexityData(getSpaceComplexity(solution));
       setIsProcessing(false);
     }
 

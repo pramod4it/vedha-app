@@ -1,448 +1,805 @@
-import { app, ipcMain, shell } from 'electron';
-import { AppMode, type SubscriptionLevel } from '../shared/api';
+import { ipcMain, shell } from 'electron';
+
+import {
+  AppMode,
+  type SubscriptionLevel,
+} from '../shared/api';
+
 import { IPC_EVENTS } from '../shared/constants';
+
 import { AppStorage } from './app.storage';
+
 import { AuthStorage } from './auth.storage';
+
 import type { IIpcHandlerDeps } from './main';
 
-export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
-  console.log('Initializing IPC handlers');
+const APP_WEBSITE =
+    process.env.APP_WEBSITE ||
+    'http://localhost:3000';
 
-  const authStorage = AuthStorage.getInstance();
-  const appStorage = AppStorage.getInstance();
+const SETTINGS_URL =
+    `${APP_WEBSITE}/settings`;
 
-  ipcMain.handle(IPC_EVENTS.TOOLTIP.MOUSE_ENTER, () => {
-    console.log('Tooltip mouse enter');
-  });
+const BILLING_URL =
+    `${APP_WEBSITE}/billing`;
 
-  ipcMain.handle(IPC_EVENTS.TOOLTIP.MOUSE_LEAVE, () => {
-    console.log('Tooltip mouse leave');
-  });
+export function initializeIpcHandlers(
+    deps: IIpcHandlerDeps,
+): void {
 
-  ipcMain.handle(IPC_EVENTS.TOOLTIP.CLOSE_CLICK, () => {
-    console.log('Tooltip close button clicked - closing application');
-    app.quit();
-  });
+  console.log(
+      'Initializing IPC handlers',
+  );
 
-  ipcMain.handle(IPC_EVENTS.QUEUE.LOADED_NO_SCREENSHOTS, () => {
-    console.log('Queue page loaded with no screenshots');
-    deps.applyQueueWindowBehavior();
-  });
+  const authStorage =
+      AuthStorage.getInstance();
 
-  ipcMain.handle(IPC_EVENTS.QUEUE.LOADED_WITH_SCREENSHOTS, (_event, screenshotCount) => {
-    console.log('Queue page loaded with screenshots:', screenshotCount);
-    deps.applyQueueWindowBehavior();
-  });
+  const appStorage =
+      AppStorage.getInstance();
 
-  // Screenshot queue handlers
-  ipcMain.handle('get-screenshot-queue', () => {
-    return deps.getScreenshotQueue();
-  });
-
-  ipcMain.handle('delete-screenshot', async (_event, path: string) => {
-    return deps.deleteScreenshot(path);
-  });
-
-  ipcMain.handle('clear-all-screenshots', async () => {
-    return deps.clearAllScreenshots();
-  });
-
-  ipcMain.handle('get-image-preview', async (_event, path: string) => {
-    return deps.getImagePreview(path);
-  });
-
-  // Window dimension handlers
   ipcMain.handle(
-    'update-content-dimensions',
-    (_event, { width, height, source }: { width: number; height: number; source: string }) => {
-      console.log(
-        '[IPC update-content-dimensions] Received - width:',
-        width,
-        'height:',
-        height,
-        'source:',
-        source,
-      );
-
-      if (width && height) {
+      IPC_EVENTS.TOOLTIP.MOUSE_ENTER,
+      () => {
         console.log(
-          '[IPC update-content-dimensions] Calling setWindowDimensions for source:',
-          source,
+            'Tooltip mouse enter',
         );
-        deps.setWindowDimensions(width, height, source);
-      } else {
-        console.log(
-          '[IPC update-content-dimensions] SKIPPED - width or height is falsy. width:',
-          width,
-          'height:',
-          height,
-        );
-      }
-    },
+      },
   );
 
   ipcMain.handle(
-    'set-window-dimensions',
-    (_event, width: number, height: number, source: string) => {
-      deps.setWindowDimensions(width, height, source);
-    },
+      IPC_EVENTS.TOOLTIP.MOUSE_LEAVE,
+      () => {
+        console.log(
+            'Tooltip mouse leave',
+        );
+      },
   );
 
-  // Screenshot management handlers
-  ipcMain.handle('get-screenshots', async () => {
-    try {
-      const queue = deps.getScreenshotQueue();
+  ipcMain.handle(
+      IPC_EVENTS.TOOLTIP.CLOSE_CLICK,
+      () => {
 
-      return await Promise.all(
-        queue.map(async (path) => ({
-          path,
-          preview: await deps.getImagePreview(path),
-        })),
-      );
-    } catch (error) {
-      console.error('Error getting screenshots:', error);
+        console.log(
+            'Tooltip close button clicked - hiding overlay',
+        );
 
-      throw error;
-    }
-  });
+        deps.hideMainWindow();
+      },
+  );
 
-  // Screenshot trigger handlers
-  ipcMain.handle('trigger-screenshot', async () => {
-    const mainWindow = deps.getMainWindow();
-    if (mainWindow) {
-      try {
-        const screenshotPath = await deps.takeScreenshot();
-        const preview = await deps.getImagePreview(screenshotPath);
-        mainWindow.webContents.send('screenshot-taken', {
-          path: screenshotPath,
-          preview,
-        });
+  ipcMain.handle(
+      IPC_EVENTS.QUEUE
+          .LOADED_NO_SCREENSHOTS,
 
-        return { success: true };
-      } catch (error) {
-        console.error('Error triggering screenshot:', error);
+      () => {
 
-        return { error: 'Failed to trigger screenshot' };
-      }
-    }
+        console.log(
+            'Queue page loaded with no screenshots',
+        );
 
-    return { error: 'No main window available' };
-  });
+        deps.applyQueueWindowBehavior();
+      },
+  );
 
-  ipcMain.handle('take-screenshot', async () => {
-    try {
-      const screenshotPath = await deps.takeScreenshot();
-      const preview = await deps.getImagePreview(screenshotPath);
+  ipcMain.handle(
+      IPC_EVENTS.QUEUE
+          .LOADED_WITH_SCREENSHOTS,
 
-      return { path: screenshotPath, preview };
-    } catch (error) {
-      console.error('Error taking screenshot:', error);
+      (_event, screenshotCount) => {
 
-      return { error: 'Failed to take screenshot' };
-    }
-  });
+        console.log(
+            'Queue page loaded with screenshots:',
+            screenshotCount,
+        );
 
-  ipcMain.handle('open-external-url', (_event, url: string) => {
-    shell.openExternal(url).catch(console.error);
-  });
+        deps.applyQueueWindowBehavior();
+      },
+  );
 
-  ipcMain.handle('open-settings-portal', () => {
-    shell.openExternal('https://getezzi.com/settings').catch(console.error);
-  });
+  ipcMain.handle(
+      'get-screenshot-queue',
+      () => {
+        return deps.getScreenshotQueue();
+      },
+  );
 
-  ipcMain.handle('open-subscription-portal', async () => {
-    try {
-      // TODO: replace with our url
-      const url = 'https://getezzi.com/en/personal/billing';
-      await shell.openExternal(url);
+  ipcMain.handle(
+      'delete-screenshot',
 
-      return { success: true };
-    } catch (error) {
-      console.error('Error opening checkout page:', error);
+      async (_event, path: string) => {
+        return deps.deleteScreenshot(
+            path,
+        );
+      },
+  );
 
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to open checkout page',
-      };
-    }
-  });
+  ipcMain.handle(
+      'clear-all-screenshots',
 
-  // Window management handlers
-  ipcMain.handle('toggle-window', () => {
-    try {
-      deps.toggleMainWindow();
+      async () => {
+        return deps.clearAllScreenshots();
+      },
+  );
 
-      return { success: true };
-    } catch (error) {
-      console.error('Error toggling window:', error);
+  ipcMain.handle(
+      'get-image-preview',
 
-      return { error: 'Failed to toggle window' };
-    }
-  });
+      async (_event, path: string) => {
+        return deps.getImagePreview(
+            path,
+        );
+      },
+  );
 
-  ipcMain.handle('reset-queues', () => {
-    try {
-      deps.clearQueues();
+  ipcMain.handle(
+      'update-content-dimensions',
 
-      return { success: true };
-    } catch (error) {
-      console.error('Error resetting queues:', error);
+      (
+          _event,
 
-      return { error: 'Failed to reset queues' };
-    }
-  });
+          {
+            width,
+            height,
+            source,
+          }: {
+            width: number;
+            height: number;
+            source: string;
+          },
+      ) => {
 
-  // Reset handlers
-  ipcMain.handle('trigger-reset', () => {
-    try {
-      // First cancel any ongoing requests
-      deps.processingHelper?.cancelOngoingRequests();
+        console.log(
+            '[IPC update-content-dimensions]',
+            width,
+            height,
+            source,
+        );
 
-      // Clear all queues immediately
-      deps.clearQueues();
+        if (width && height) {
 
-      // Reset view to queue
-      deps.setView('queue');
-
-      // Get main window and send reset events
-      const mainWindow = deps.getMainWindow();
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('reset-view');
-      }
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error triggering reset:', error);
-
-      return { error: 'Failed to trigger reset' };
-    }
-  });
-
-  // Window movement handlers
-  ipcMain.handle('trigger-move-left', () => {
-    try {
-      deps.moveWindowLeft();
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error moving window left:', error);
-
-      return { error: 'Failed to move window left' };
-    }
-  });
-
-  ipcMain.handle('trigger-move-right', () => {
-    try {
-      deps.moveWindowRight();
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error moving window right:', error);
-
-      return { error: 'Failed to move window right' };
-    }
-  });
-
-  ipcMain.handle('trigger-move-up', () => {
-    try {
-      deps.moveWindowUp();
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error moving window up:', error);
-
-      return { error: 'Failed to move window up' };
-    }
-  });
-
-  ipcMain.handle('trigger-move-down', () => {
-    try {
-      deps.moveWindowDown();
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error moving window down:', error);
-
-      return { error: 'Failed to move window down' };
-    }
-  });
-
-  // Auth token handlers
-  ipcMain.handle('auth-set-token', (_event, token: string, expiryTimestamp?: number) => {
-    try {
-      authStorage.setAuthToken(token, expiryTimestamp);
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error setting auth token:', error);
-
-      return { error: 'Failed to set auth token' };
-    }
-  });
-
-  ipcMain.handle('auth-get-token', () => {
-    try {
-      const token = authStorage.getAuthToken();
-
-      return { success: true, token };
-    } catch (error) {
-      console.error('Error getting auth token:', error);
-
-      return { error: 'Failed to get auth token' };
-    }
-  });
-
-  ipcMain.handle('auth-clear-token', () => {
-    try {
-      authStorage.clearAuthToken();
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error clearing auth token:', error);
-
-      return { error: 'Failed to clear auth token' };
-    }
-  });
-
-  ipcMain.handle('auth-is-authenticated', () => {
-    try {
-      const isAuthenticated = authStorage.isAuthenticated();
-
-      return { success: true, isAuthenticated };
-    } catch (error) {
-      console.error('Error checking authentication:', error);
-
-      return { error: 'Failed to check authentication' };
-    }
-  });
-
-  ipcMain.handle('auth-set-last-used-email', (_event, email: string) => {
-    try {
-      authStorage.setLastUsedEmail(email);
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error setting last used email:', error);
-
-      return { error: 'Failed to set last used email' };
-    }
-  });
-
-  ipcMain.handle('auth-get-last-used-email', () => {
-    try {
-      const email = authStorage.getLastUsedEmail();
-
-      return { success: true, email };
-    } catch (error) {
-      console.error('Error getting last used email:', error);
-
-      return { error: 'Failed to get last used email' };
-    }
-  });
-
-  ipcMain.handle('auth-set-subscription-level', (_event, level: SubscriptionLevel) => {
-    try {
-      authStorage.setSubscriptionLevel(level);
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error setting subscription level:', error);
-
-      return { error: 'Failed to set subscription level' };
-    }
-  });
-
-  ipcMain.handle(IPC_EVENTS.APP_MODE.CHANGE, (_event, appMode: string) => {
-    try {
-      console.log('App mode changed to:', appMode);
-
-      if (Object.values(AppMode).includes(appMode as AppMode)) {
-        deps.setAppMode(appMode as AppMode);
-
-        appStorage.setAppMode(appMode as AppMode);
-        console.log('App mode saved to storage:', appMode);
-
-        const mainWindow = deps.getMainWindow();
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          const currentView = deps.getView();
-          if (currentView === 'queue') {
-            deps.applyQueueWindowBehavior();
-          }
+          deps.setWindowDimensions(
+              width,
+              height,
+              source,
+          );
         }
-      } else {
-        return { error: 'Invalid app mode' };
-      }
+      },
+  );
 
-      return { success: true };
-    } catch (error) {
-      console.error('Error changing app mode:', error);
+  ipcMain.handle(
+      'set-window-dimensions',
 
-      return { error: 'Failed to change app mode' };
-    }
-  });
+      (
+          _event,
+          width: number,
+          height: number,
+          source: string,
+      ) => {
 
-  ipcMain.handle('get-app-mode', () => {
-    try {
-      const appMode = deps.getAppMode();
-      console.log('Getting app mode:', appMode);
+        deps.setWindowDimensions(
+            width,
+            height,
+            source,
+        );
+      },
+  );
 
-      return { success: true, appMode };
-    } catch (error) {
-      console.error('Error getting app mode:', error);
+  ipcMain.handle(
+      'get-screenshots',
 
-      return { error: 'Failed to get app mode' };
-    }
-  });
+      async () => {
 
-  ipcMain.handle('get-readable-var-names', () => {
-    try {
-      const readableVarNames = appStorage.getReadableVarNames();
+        try {
 
-      return { success: true, readableVarNames };
-    } catch (error) {
-      console.error('Error getting readableVarNames:', error);
+          const queue =
+              deps.getScreenshotQueue();
 
-      return { success: false, error: 'Failed to get readableVarNames' };
-    }
-  });
+          return await Promise.all(
+              queue.map(
+                  async (path) => ({
+                    path,
 
-  ipcMain.handle('set-readable-var-names', (_event, value: boolean) => {
-    try {
-      appStorage.setReadableVarNames(value);
+                    preview:
+                        await deps.getImagePreview(
+                            path,
+                        ),
+                  }),
+              ),
+          );
 
-      return { success: true };
-    } catch (error) {
-      console.error('Error setting readableVarNames:', error);
+        } catch (error) {
 
-      return { success: false, error: 'Failed to set readableVarNames' };
-    }
-  });
+          console.error(
+              'Error getting screenshots:',
+              error,
+          );
 
-  // Clipboard handlers
-  ipcMain.handle('write-text', async (_event, text: string) => {
-    try {
-      return await deps.writeText(text);
-    } catch (error) {
-      console.error('Error writing text to clipboard:', error);
+          throw error;
+        }
+      },
+  );
 
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to copy text',
-      };
-    }
-  });
+  ipcMain.handle(
+      'trigger-screenshot',
 
-  // Copy and refresh window handlers
-  ipcMain.handle('copy-and-refresh-window', async (_event, text: string, waitDuration?: number) => {
-    try {
-      return await deps.copyAndRefreshWindow(text, waitDuration);
-    } catch (error) {
-      console.error('Error in copy and refresh window:', error);
+      async () => {
 
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to copy and refresh window',
-      };
-    }
-  });
+        const mainWindow =
+            deps.getMainWindow();
+
+        if (!mainWindow) {
+          return {
+            error:
+                'No main window available',
+          };
+        }
+
+        try {
+
+          const screenshotPath =
+              await deps.takeScreenshot();
+
+          const preview =
+              await deps.getImagePreview(
+                  screenshotPath,
+              );
+
+          mainWindow.webContents.send(
+              'screenshot-taken',
+              {
+                path: screenshotPath,
+                preview,
+              },
+          );
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error triggering screenshot:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to trigger screenshot',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'take-screenshot',
+
+      async () => {
+
+        try {
+
+          const screenshotPath =
+              await deps.takeScreenshot();
+
+          const preview =
+              await deps.getImagePreview(
+                  screenshotPath,
+              );
+
+          return {
+            path: screenshotPath,
+            preview,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error taking screenshot:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to take screenshot',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'open-external-url',
+
+      (_event, url: string) => {
+        shell
+            .openExternal(url)
+            .catch(console.error);
+      },
+  );
+
+  ipcMain.handle(
+      'open-settings-portal',
+
+      async () => {
+
+        try {
+
+          await shell.openExternal(
+              SETTINGS_URL,
+          );
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error opening settings page:',
+              error,
+          );
+
+          return {
+            success: false,
+            error:
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to open settings page',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'open-subscription-portal',
+
+      async () => {
+
+        try {
+
+          await shell.openExternal(
+              BILLING_URL,
+          );
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error opening billing page:',
+              error,
+          );
+
+          return {
+            success: false,
+            error:
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to open billing page',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'toggle-window',
+
+      () => {
+
+        try {
+
+          deps.toggleMainWindow();
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error toggling window:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to toggle window',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'reset-queues',
+
+      () => {
+
+        try {
+
+          deps.clearQueues();
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error resetting queues:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to reset queues',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'auth-set-token',
+
+      (
+          _event,
+          token: string,
+          expiryTimestamp?: number,
+      ) => {
+
+        try {
+
+          authStorage.setAuthToken(
+              token,
+              expiryTimestamp,
+          );
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error setting auth token:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to set auth token',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'auth-get-token',
+
+      () => {
+
+        try {
+
+          const token =
+              authStorage.getAuthToken();
+
+          return {
+            success: true,
+            token,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error getting auth token:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to get auth token',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'auth-clear-token',
+
+      () => {
+
+        try {
+
+          authStorage.clearAuthToken();
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error clearing auth token:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to clear auth token',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'auth-is-authenticated',
+
+      () => {
+
+        try {
+
+          const isAuthenticated =
+              authStorage.isAuthenticated();
+
+          return {
+            success: true,
+            isAuthenticated,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error checking authentication:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to check authentication',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'auth-set-last-used-email',
+
+      (_event, email: string) => {
+
+        try {
+
+          authStorage.setLastUsedEmail(
+              email,
+          );
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error setting last used email:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to set last used email',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'auth-get-last-used-email',
+
+      () => {
+
+        try {
+
+          const email =
+              authStorage.getLastUsedEmail();
+
+          return {
+            success: true,
+            email,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error getting last used email:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to get last used email',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'auth-set-subscription-level',
+
+      (
+          _event,
+          level: SubscriptionLevel,
+      ) => {
+
+        try {
+
+          console.log("level kaba:",level)
+          authStorage.setSubscriptionLevel(
+              level,
+          );
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error setting subscription level:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to set subscription level',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      IPC_EVENTS.APP_MODE.CHANGE,
+
+      (
+          _event,
+          appMode: string,
+      ) => {
+
+        try {
+
+          if (
+              Object.values(AppMode).includes(
+                  appMode as AppMode,
+              )
+          ) {
+
+            deps.setAppMode(
+                appMode as AppMode,
+            );
+
+            appStorage.setAppMode(
+                appMode as AppMode,
+            );
+          }
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error changing app mode:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to change app mode',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'get-app-mode',
+
+      () => {
+
+        try {
+
+          return {
+            success: true,
+            appMode:
+                deps.getAppMode(),
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error getting app mode:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to get app mode',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'set-interview-metadata',
+
+      (
+          _event,
+          metadata: {
+            companyName: string;
+            interviewerName: string;
+            interviewRound: string;
+            answerDepth?: 'short' | 'medium' | 'systemdesign';
+            targetRole?: string;
+            techStack?: string;
+            resumeSummary?: string;
+            jobDescription?: string;
+            extraInstructions?: string;
+          },
+      ) => {
+
+        try {
+
+          appStorage.setInterviewMetadata(
+              {
+                ...metadata,
+                answerDepth:
+                    metadata.answerDepth ||
+                    'medium',
+              },
+          );
+
+          return {
+            success: true,
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error setting interview metadata:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to set interview metadata',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'get-interview-metadata',
+
+      () => {
+
+        try {
+
+          return {
+            success: true,
+            metadata:
+                appStorage.getInterviewMetadata(),
+          };
+
+        } catch (error) {
+
+          console.error(
+              'Error getting interview metadata:',
+              error,
+          );
+
+          return {
+            error:
+                'Failed to get interview metadata',
+          };
+        }
+      },
+  );
 }

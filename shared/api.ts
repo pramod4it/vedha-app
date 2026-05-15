@@ -14,36 +14,37 @@ export enum ProgrammingLanguage {
 }
 
 export enum UserLanguage {
-  EN_US = 'en-US', // English (United States)
-  ES_ES = 'es-ES', // Spanish (Spain)
-  ES_MX = 'es-MX', // Spanish (Mexico)
-  ES_AR = 'es-AR', // Spanish (Argentina)
-  PT_PT = 'pt-PT', // Portuguese (Portugal)
-  PT_BR = 'pt-BR', // Portuguese (Brazil)
-  FR_FR = 'fr-FR', // French (France)
-  FR_CA = 'fr-CA', // French (Canada)
-  DE_DE = 'de-DE', // German (Germany)
-  DE_AT = 'de-AT', // German (Austria)
-  UK_UA = 'uk-UA', // Ukrainian (Ukraine)
-  RU_RU = 'ru-RU', // Russian (Russia)
-  ZH_CN = 'zh-CN', // Chinese (Simplified, China)
-  ZH_TW = 'zh-TW', // Chinese (Traditional, Taiwan)
-  JA_JP = 'ja-JP', // Japanese (Japan)
-  KO_KR = 'ko-KR', // Korean (Korea)
-  HI_IN = 'hi-IN', // Hindi (India)
-  AR_SA = 'ar-SA', // Arabic (Saudi Arabia)
-  AR_EG = 'ar-EG', // Arabic (Egypt)
+  EN_US = 'en-US',
+  ES_ES = 'es-ES',
+  ES_MX = 'es-MX',
+  ES_AR = 'es-AR',
+  PT_PT = 'pt-PT',
+  PT_BR = 'pt-BR',
+  FR_FR = 'fr-FR',
+  FR_CA = 'fr-CA',
+  DE_DE = 'de-DE',
+  DE_AT = 'de-AT',
+  UK_UA = 'uk-UA',
+  RU_RU = 'ru-RU',
+  ZH_CN = 'zh-CN',
+  ZH_TW = 'zh-TW',
+  JA_JP = 'ja-JP',
+  KO_KR = 'ko-KR',
+  HI_IN = 'hi-IN',
+  AR_SA = 'ar-SA',
+  AR_EG = 'ar-EG',
 }
 
 export enum AppMode {
   LIVE_INTERVIEW = 'live-interview',
-  LEETCODE_SOLVER = 'leetcode-solver',
 }
 
 export enum SubscriptionLevel {
   FREE = 'FREE',
   PRO = 'PRO',
 }
+
+export type AnswerDepth = 'short' | 'medium' | 'systemdesign';
 
 // =============================================================================
 // AUTHENTICATION TYPES
@@ -62,6 +63,7 @@ export interface AuthResponse {
     user: AuthUser | null;
     session: AuthSession | null;
   };
+
   error: {
     name?: string;
     status?: number;
@@ -72,11 +74,13 @@ export interface AuthenticatedUser {
   user: {
     email: string;
   };
+
   subscription: {
     active_from: string | null;
     active_to: string | null;
     level: SubscriptionLevel;
   };
+
   settings: {
     solutionLanguage: ProgrammingLanguage;
     userLanguage: UserLanguage;
@@ -88,59 +92,171 @@ export interface AuthenticatedUser {
 // =============================================================================
 
 export interface SolveRequest {
-  images: string[]; // Array of base64-encoded images
-  isMock?: boolean; // Optional flag for mock responses
+  images: string[];
+
+  isMock?: boolean;
+
   readableVarNames?: boolean;
+
+  companyName?: string;
+
+  interviewerName?: string;
+
+  interviewRound?: string;
+
+  answerDepth?: AnswerDepth;
+
+  targetRole?: string;
+
+  techStack?: string;
+
+  resumeSummary?: string;
+
+  jobDescription?: string;
+
+  extraInstructions?: string;
+}
+
+export interface InterviewMetadata {
+  companyName: string;
+  interviewerName: string;
+  interviewRound: string;
+  answerDepth: AnswerDepth;
+  targetRole?: string;
+  techStack?: string;
+  resumeSummary?: string;
+  jobDescription?: string;
+  extraInstructions?: string;
 }
 
 export interface SolveResponse {
-  thoughts: string[]; // Array of thought processes
-  code: string; // Generated code solution
-  time_complexity: string; // Big O time complexity
-  space_complexity: string; // Big O space complexity
-  problem_statement: string; // Extracted problem statement
+  thoughts: string[];
+
+  code: string;
+
+  answerText?: string;
+
+  diagramMermaid?: string;
+
+  messageType?: string;
+
+  parentQuestionId?: number;
+
+  answerDepth?: AnswerDepth;
+
+  timeComplexity: string;
+
+  spaceComplexity: string;
+
+  problemStatement: string;
+
   conversationId: string;
+
+  followUpQuestions?: string[];
+
+  sayThis?: string;
+
+  example?: string;
 }
 
 export interface DebugRequest {
-  images: string[]; // Array of base64-encoded images
-  isMock?: boolean; // Optional flag for mock responses
+  images: string[];
+
+  isMock?: boolean;
+
   readableVarNames?: boolean;
 }
 
 export interface DebugResponse {
-  code: string; // Debugged/improved code
-  thoughts: string[]; // Array of debugging thoughts
-  time_complexity: string; // Big O time complexity
-  space_complexity: string; // Big O space complexity
+  code: string;
+
+  thoughts: string[];
+
+  timeComplexity: string;
+
+  spaceComplexity: string;
+
   conversationId: string;
 }
 
-// =============================================================================
-// LEETCODE PROCESSING TYPES
-// =============================================================================
+export interface InterviewQuestionRequest {
+  question: string;
 
-export interface LeetCodeSolveRequest {
-  images: string[]; // Array of base64-encoded images
-  isMock?: boolean; // Optional flag for mock responses
-  readableVarNames?: boolean;
+  textQuestion?: string;
+
+  audioQuestion?: string;
+
+  audioData?: number[];
+
+  screenshotCount?: number;
+
+  companyName?: string;
+
+  interviewerName?: string;
+
+  interviewRound?: string;
+
+  answerDepth?: AnswerDepth;
+
+  answer?: string;
+
+  answerText?: string;
+
+  diagramMermaid?: string;
+
+  rawResponse?: string;
+
+  messageType?: string;
+
+  parentQuestionId?: number;
+
+  source?: string;
+
+  sessionKey?: string;
+
+  conversationId?: string;
 }
 
-export interface LeetCodeSolveResponse {
-  code: string; // Generated code solution
-  conversationId: string; // Conversation ID for context continuity
-}
+export interface InterviewQuestionResponse {
+  id: number;
 
-export interface LeetCodeDebugRequest {
-  images: string[]; // Array of base64-encoded images
-  conversationId: string; // Required conversation ID from previous solve request
-  isMock?: boolean; // Optional flag for mock responses
-  readableVarNames?: boolean;
-}
+  question: string;
 
-export interface LeetCodeDebugResponse {
-  code: string; // Debugged/improved code
-  conversationId: string;
+  textQuestion?: string | null;
+
+  audioQuestion?: string | null;
+
+  audioSizeBytes?: number | null;
+
+  screenshotCount?: number | null;
+
+  companyName?: string | null;
+
+  interviewerName?: string | null;
+
+  interviewRound?: string | null;
+
+  answerDepth?: AnswerDepth | null;
+
+  answer?: string | null;
+
+  answerText?: string | null;
+
+  diagramMermaid?: string | null;
+
+  rawResponse?: string | null;
+
+  messageType?: string | null;
+
+  parentQuestionId?: number | null;
+
+  source?: string | null;
+
+  sessionKey?: string | null;
+
+  conversationId?: string | null;
+
+  createdAt: string;
 }
 
 // =============================================================================
@@ -149,38 +265,19 @@ export interface LeetCodeDebugResponse {
 
 export interface SettingsResponse {
   solutionLanguage: ProgrammingLanguage;
+
   userLanguage: UserLanguage;
 }
 
 export interface UserSettingsUpdateRequest {
   solutionLanguage: ProgrammingLanguage;
+
   userLanguage: UserLanguage;
 }
 
-/**
- * AUTHENTICATION:
- * - Uses Bearer token authentication
- * - Token should be included in Authorization header
- *
- * IMAGE PROCESSING:
- * - Images are sent as base64-encoded strings
- * - Multiple images can be processed in a single request
- * - Images typically contain screenshots of coding problems
- *
- * SUBSCRIPTION VALIDATION:
- * - Free tier users cannot generate solutions
- * - Paid subscriptions have unlimited solutions during the active period
- * - Check subscription level before processing requests
- *
- * LOCALIZATION:
- * - Response language and code solutions are handled by backend
- * - User language and solution language preferences are managed via settings
- *
- * MOCK MODE:
- * - When isMock=true, return predefined responses for testing
- * - Should not consume user's solution quota
- * - Useful for development and testing
- */
+// =============================================================================
+// API ENDPOINTS
+// =============================================================================
 
 export const API_ENDPOINTS = {
   AUTH: {
@@ -188,17 +285,24 @@ export const API_ENDPOINTS = {
     SIGNUP: '/auth/signup',
     USER: '/auth/user',
   },
+
   SETTINGS: {
     GET: '/user-settings',
     UPDATE: '/user-settings',
   },
+
   SOLUTIONS: {
     SOLVE: '/solutions/solve',
     DEBUG: '/solutions/debug',
   },
-  LEETCODE: {
-    SOLVE: '/solutions/leetcode/solve',
-    DEBUG: '/solutions/leetcode/debug',
+
+  INTERVIEW_QUESTIONS: {
+    LIST: '/interview-questions',
+    CREATE: '/interview-questions',
+  },
+
+  RESUME: {
+    EXTRACT: '/resume/extract',
   },
 } as const;
 
@@ -208,5 +312,6 @@ export const API_ENDPOINTS = {
 
 export interface Screenshot {
   path: string;
+
   preview: string;
 }

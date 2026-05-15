@@ -1,57 +1,88 @@
 import type React from 'react';
-import { CommandSection, ScreenshotSection } from '../components/sections';
+
+import {
+  CommandSection,
+  ScreenshotSection,
+} from '../components/sections';
+
 import { useQueue } from '../hooks';
-import { LeetcodeSolverLayout, LiveInterviewLayout, useAppModeLayout } from '../layouts';
+
+import {
+  LiveInterviewLayout,
+} from '../layouts';
 
 interface QueuePageProps {
-  setView: (view: 'queue' | 'solutions' | 'debug') => void;
+  setView: (
+      view:
+          | 'queue'
+          | 'solutions'
+          | 'debug',
+  ) => void;
 }
 
-const QueuePage: React.FC<QueuePageProps> = ({ setView: _setView }) => {
-  const { isLiveInterview } = useAppModeLayout();
-  const { screenshots, handleDeleteScreenshot, handleTooltipVisibilityChange, contentRef } =
-    useQueue();
+const QueuePage:
+    React.FC<QueuePageProps> = ({
+                                  setView: _setView,
+                                }) => {
+
+  const {
+    screenshots,
+    handleDeleteScreenshot,
+    handleTooltipVisibilityChange,
+    contentRef,
+  } = useQueue();
 
   const screenshotSection =
-    screenshots.length > 0 ? (
-      <ScreenshotSection
-        screenshots={screenshots}
-        onDeleteScreenshot={handleDeleteScreenshot}
-        isLoading={false}
-      />
-    ) : null;
+      screenshots.length > 0
+          ? (
+              <ScreenshotSection
+                  screenshots={screenshots}
+                  onDeleteScreenshot={
+                    handleDeleteScreenshot
+                  }
+                  isLoading={false}
+              />
+          )
+          : null;
 
   const commandSection = (
-    <CommandSection
-      mode="queue"
-      onTooltipVisibilityChange={handleTooltipVisibilityChange}
-      screenshotCount={screenshots.length}
-    />
+      <CommandSection
+          mode="queue"
+          onTooltipVisibilityChange={
+            handleTooltipVisibilityChange
+          }
+          screenshotCount={
+            screenshots.length
+          }
+      />
   );
 
-  if (isLiveInterview) {
     return (
-      <div ref={contentRef} className="bg-transparent w-1/2">
-        <div className="px-4 py-3">
-          <div className="space-y-3 w-fit">
-            <LiveInterviewLayout
-              screenshotSection={screenshotSection}
-              commandSection={commandSection}
-            />
-          </div>
+        <div
+            ref={contentRef}
+            className="w-full bg-transparent"
+        >
+
+            <div className="px-5 py-5">
+
+                <div className="w-full space-y-5">
+
+                    <LiveInterviewLayout
+                        className="justify-center pr-0"
+                        screenshotSection={
+                            screenshotSection
+                        }
+                        commandSection={
+                            commandSection
+                        }
+                    />
+
+                </div>
+
+            </div>
+
         </div>
-      </div>
     );
-  } else {
-    return (
-      <div ref={contentRef} className="bg-transparent w-full">
-        <LeetcodeSolverLayout
-          screenshotSection={screenshotSection}
-          commandSection={commandSection}
-        />
-      </div>
-    );
-  }
 };
 
 export default QueuePage;

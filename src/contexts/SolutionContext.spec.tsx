@@ -1,121 +1,326 @@
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import type {
-  DebugResponse,
-  LeetCodeDebugResponse,
-  LeetCodeSolveResponse,
-  SolveResponse,
-} from '../../shared/api';
-import { SolutionProvider, useSolutionContext } from './SolutionContext';
 
-function wrapper({ children }: { children: ReactNode }) {
-  return <SolutionProvider>{children}</SolutionProvider>;
+jest.mock('@shared/constants.ts', () => ({
+    LATEST_ANSWER_LIMIT: 5,
+}));
+
+import type {
+    DebugResponse,
+    SolveResponse,
+} from '../../shared/api';
+
+import {
+    SolutionProvider,
+    useSolutionContext,
+} from './SolutionContext';
+
+interface WrapperProps {
+    children: ReactNode;
 }
 
-const solve: SolveResponse = {
-  thoughts: ['t'],
-  code: 'print(1)',
-  time_complexity: 'O(1)',
-  space_complexity: 'O(1)',
-  problem_statement: 'p',
-  conversationId: 'c',
+const Wrapper = ({
+                     children,
+                 }: WrapperProps) => (
+    <SolutionProvider>
+        {children}
+    </SolutionProvider>
+);
+
+const solveResponse: SolveResponse = {
+    thoughts: ['t'],
+    code: 'print(1)',
+    timeComplexity: 'O(1)',
+    spaceComplexity: 'O(1)',
+    problemStatement: 'p',
+    conversationId: 'c',
 };
 
-const debug: DebugResponse = {
-  code: 'fixed',
-  thoughts: ['t'],
-  time_complexity: 'O(n)',
-  space_complexity: 'O(n)',
-  conversationId: 'c',
+const debugResponse: DebugResponse = {
+    code: 'fixed',
+    thoughts: ['t'],
+    timeComplexity: 'O(n)',
+    spaceComplexity: 'O(n)',
+    conversationId: 'c',
 };
-
-const leetSolve: LeetCodeSolveResponse = { code: 'class', conversationId: 'c' };
-const leetDebug: LeetCodeDebugResponse = { code: 'fixed-leet', conversationId: 'c' };
 
 describe('SolutionContext', () => {
-  describe('setSolution', () => {
-    test('WHEN setSolution is called with SolveResponse THEN state.solution is set', () => {
-      const { result } = renderHook(() => useSolutionContext(), { wrapper });
 
-      // Act
-      act(() => result.current.setSolution(solve));
+    const setup = () =>
+        renderHook(
+            () => useSolutionContext(),
+            {
+                wrapper: Wrapper,
+            },
+        );
 
-      // Assert
-      expect(result.current.state.solution).toEqual(solve);
+    describe('setSolution', () => {
+
+        test(
+            'should set solution state',
+            () => {
+
+                const { result } =
+                    setup();
+
+                act(() => {
+                    result.current.setSolution(
+                        solveResponse,
+                    );
+                });
+
+                expect(
+                    result.current.state.solution,
+                ).toMatchObject(
+                    {
+                        ...solveResponse,
+                        displaySequence: 1,
+                    },
+                );
+
+            },
+        );
+
+        test(
+            'should keep only the latest five solutions with newest first',
+            () => {
+
+                const { result } =
+                    setup();
+
+                const makeSolution = (
+                    conversationId: string,
+                ): SolveResponse => ({
+                    ...solveResponse,
+                    conversationId,
+                    problemStatement: `Q-${conversationId}`,
+                    answerText: `A-${conversationId}`,
+                });
+
+                act(() => {
+                    result.current.setSolution(
+                        makeSolution('first'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('second'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('third'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('fourth'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('fifth'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('sixth'),
+                    );
+                });
+
+                expect(
+                    result.current.state.solutionHistory.map(
+                        (solution) => [
+                            solution.problemStatement,
+                            solution.answerText,
+                            solution.displaySequence,
+                        ],
+                    ),
+                ).toEqual([
+                    ['Q-sixth', 'A-sixth', 6],
+                    ['Q-fifth', 'A-fifth', 5],
+                    ['Q-fourth', 'A-fourth', 4],
+                    ['Q-third', 'A-third', 3],
+                    ['Q-second', 'A-second', 2],
+                ]);
+
+            },
+        );
+
+        test(
+            'should keep every live solution when backend omits conversation ids',
+            () => {
+
+                const { result } =
+                    setup();
+
+                const makeSolution = (
+                    question: string,
+                    answer: string,
+                ): SolveResponse => ({
+                    ...solveResponse,
+                    conversationId: '',
+                    problemStatement: question,
+                    answerText: answer,
+                });
+
+                act(() => {
+                    result.current.setSolution(
+                        makeSolution('Q1', 'A1'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('Q2', 'A2'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('Q3', 'A3'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('Q4', 'A4'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('Q5', 'A5'),
+                    );
+                    result.current.setSolution(
+                        makeSolution('Q6', 'A6'),
+                    );
+                });
+
+                expect(
+                    result.current.state.solutionHistory.map(
+                        (solution) => [
+                            solution.problemStatement,
+                            solution.answerText,
+                            solution.displaySequence,
+                        ],
+                    ),
+                ).toEqual([
+                    ['Q6', 'A6', 6],
+                    ['Q5', 'A5', 5],
+                    ['Q4', 'A4', 4],
+                    ['Q3', 'A3', 3],
+                    ['Q2', 'A2', 2],
+                ]);
+
+                expect(
+                    result.current.state.solutionHistory.every(
+                        (solution) => Boolean(solution.conversationId),
+                    ),
+                ).toBe(true);
+
+            },
+        );
+
     });
 
-    test('WHEN setSolution is called with LeetCodeSolveResponse THEN state.solution is set', () => {
-      const { result } = renderHook(() => useSolutionContext(), { wrapper });
+    describe('setNewSolution', () => {
 
-      // Act
-      act(() => result.current.setSolution(leetSolve));
+        test(
+            'should set newSolution state',
+            () => {
 
-      // Assert
-      expect(result.current.state.solution).toEqual(leetSolve);
+                const { result } =
+                    setup();
+
+                act(() => {
+                    result.current.setNewSolution(
+                        debugResponse,
+                    );
+                });
+
+                expect(
+                    result.current.state.newSolution,
+                ).toEqual(
+                    debugResponse,
+                );
+
+            },
+        );
+
     });
-  });
 
-  describe('setNewSolution', () => {
-    test('WHEN setNewSolution is called with DebugResponse THEN state.newSolution is set', () => {
-      const { result } = renderHook(() => useSolutionContext(), { wrapper });
+    describe('clearSolution', () => {
 
-      // Act
-      act(() => result.current.setNewSolution(debug));
+        test(
+            'should clear solution state',
+            () => {
 
-      // Assert
-      expect(result.current.state.newSolution).toEqual(debug);
+                const { result } =
+                    setup();
+
+                act(() => {
+                    result.current.setSolution(
+                        solveResponse,
+                    );
+                });
+
+                act(() => {
+                    result.current.clearSolution();
+                });
+
+                expect(
+                    result.current.state.solution,
+                ).toBeNull();
+
+            },
+        );
+
     });
 
-    test('WHEN setNewSolution is called with LeetCodeDebugResponse THEN state.newSolution is set', () => {
-      const { result } = renderHook(() => useSolutionContext(), { wrapper });
+    describe('clearNewSolution', () => {
 
-      // Act
-      act(() => result.current.setNewSolution(leetDebug));
+        test(
+            'should clear newSolution state',
+            () => {
 
-      // Assert
-      expect(result.current.state.newSolution).toEqual(leetDebug);
+                const { result } =
+                    setup();
+
+                act(() => {
+                    result.current.setNewSolution(
+                        debugResponse,
+                    );
+                });
+
+                act(() => {
+                    result.current.clearNewSolution();
+                });
+
+                expect(
+                    result.current.state.newSolution,
+                ).toBeNull();
+
+            },
+        );
+
     });
-  });
 
-  describe('clearSolution', () => {
-    test('WHEN clearSolution is called THEN state.solution becomes null', () => {
-      const { result } = renderHook(() => useSolutionContext(), { wrapper });
-      act(() => result.current.setSolution(solve));
+    describe('clearAll', () => {
 
-      // Act
-      act(() => result.current.clearSolution());
+        test(
+            'should clear both solution and newSolution',
+            () => {
 
-      // Assert
-      expect(result.current.state.solution).toBeNull();
+                const { result } =
+                    setup();
+
+                act(() => {
+
+                    result.current.setSolution(
+                        solveResponse,
+                    );
+
+                    result.current.setNewSolution(
+                        debugResponse,
+                    );
+
+                });
+
+                act(() => {
+                    result.current.clearAll();
+                });
+
+                expect(
+                    result.current.state,
+                ).toEqual({
+                    solution: null,
+                    solutionHistory: [],
+                    newSolution: null,
+                    answerSequence: 0,
+                });
+
+            },
+        );
+
     });
-  });
 
-  describe('clearNewSolution', () => {
-    test('WHEN clearNewSolution is called THEN state.newSolution becomes null', () => {
-      const { result } = renderHook(() => useSolutionContext(), { wrapper });
-      act(() => result.current.setNewSolution(debug));
-
-      // Act
-      act(() => result.current.clearNewSolution());
-
-      // Assert
-      expect(result.current.state.newSolution).toBeNull();
-    });
-  });
-
-  describe('clearAll', () => {
-    test('WHEN clearAll is called THEN both solution and newSolution become null', () => {
-      const { result } = renderHook(() => useSolutionContext(), { wrapper });
-      act(() => {
-        result.current.setSolution(solve);
-        result.current.setNewSolution(debug);
-      });
-
-      // Act
-      act(() => result.current.clearAll());
-
-      // Assert
-      expect(result.current.state).toEqual({ solution: null, newSolution: null });
-    });
-  });
 });

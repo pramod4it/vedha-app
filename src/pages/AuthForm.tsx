@@ -1,8 +1,9 @@
 import type { AuthenticatedUser } from '@shared/api.ts';
-import { IPC_EVENTS, isSelfHosted } from '@shared/constants.ts';
+import { IPC_EVENTS } from '@shared/constants.ts';
 import React, { useState } from 'react';
 import CommandButton from '../components/shared/commands/CommandButton.tsx';
 import { getAuthProvider } from '../services/auth/index';
+import { resumeService } from '../services/resume.ts';
 import { sendToElectron } from '../utils/electron.ts';
 
 interface AuthFormProps {
@@ -12,9 +13,20 @@ interface AuthFormProps {
 interface FormState {
   email: string;
   password: string;
+  companyName: string;
+  interviewerName: string;
+  interviewRound: string;
+  answerDepth: 'short' | 'medium' | 'systemdesign';
+  targetRole: string;
+  techStack: string;
+  resumeSummary: string;
+  jobDescription: string;
+  extraInstructions: string;
   error: string;
   passwordError: string;
   isLoading: boolean;
+  isResumeUploading: boolean;
+  resumeFileName: string;
   isSignUp: boolean;
   shake: boolean;
 }
@@ -22,9 +34,20 @@ interface FormState {
 const initialState: FormState = {
   email: '',
   password: '',
+  companyName: '',
+  interviewerName: '',
+  interviewRound: '',
+  answerDepth: 'medium',
+  targetRole: '',
+  techStack: '',
+  resumeSummary: '',
+  jobDescription: '',
+  extraInstructions: '',
   error: '',
   passwordError: '',
   isLoading: false,
+  isResumeUploading: false,
+  resumeFileName: '',
   isSignUp: false,
   shake: false,
 };
@@ -34,43 +57,51 @@ export function AuthForm({ setUser }: AuthFormProps) {
   const authProvider = getAuthProvider();
 
   React.useEffect(() => {
-    const loadLastUsedEmail = async () => {
+    window.electronAPI
+      .updateContentDimensions({
+        width: 560,
+        height: 860,
+        source: 'AuthForm',
+      })
+      .catch(console.error);
+  }, []);
+
+  React.useEffect(() => {
+    const loadLastUsedDetails = async () => {
       try {
-        const result = await window.electronAPI.authGetLastUsedEmail();
-        if (result.success && result.email) {
-          setFormState((prev) => ({ ...prev, email: result.email! }));
+        const [emailResult, metadataResult] = await Promise.all([
+          window.electronAPI.authGetLastUsedEmail(),
+          window.electronAPI.getInterviewMetadata(),
+        ]);
+
+        if (emailResult.success && emailResult.email) {
+          setFormState((prev) => ({ ...prev, email: emailResult.email! }));
+        }
+
+        if (metadataResult.success && metadataResult.metadata) {
+          setFormState((prev) => ({
+            ...prev,
+            companyName: metadataResult.metadata?.companyName || '',
+            interviewerName: metadataResult.metadata?.interviewerName || '',
+            interviewRound: metadataResult.metadata?.interviewRound || '',
+            answerDepth: metadataResult.metadata?.answerDepth || 'medium',
+            targetRole: metadataResult.metadata?.targetRole || '',
+            techStack: metadataResult.metadata?.techStack || '',
+            resumeSummary: metadataResult.metadata?.resumeSummary || '',
+            jobDescription: metadataResult.metadata?.jobDescription || '',
+            extraInstructions: metadataResult.metadata?.extraInstructions || '',
+          }));
         }
       } catch (error) {
-        console.error('Error loading last used email:', error);
+        console.error('Error loading last used details:', error);
       }
     };
 
-    if (!isSelfHosted()) {
-      loadLastUsedEmail().catch(console.error);
-    }
+    loadLastUsedDetails().catch(console.error);
+
   }, []);
 
-  // In self-hosted mode, automatically authenticate
-  React.useEffect(() => {
-    if (isSelfHosted()) {
-      authProvider
-        .getCurrentUser()
-        .then((user) => {
-          if (user) {
-            setUser(user);
-          }
-        })
-        .catch((error) => {
-          console.error('Error getting user in self-hosted mode:', error);
-        });
-    }
-  }, [authProvider, setUser]);
-
-  // Don't render form in self-hosted mode
-  if (isSelfHosted()) {
-    return null;
-  }
-
+  
   const validatePassword = (value: string): boolean => {
     if (formState.isSignUp && value.length < 6) {
       setFormState((prev) => ({
@@ -97,6 +128,94 @@ export function AuthForm({ setUser }: AuthFormProps) {
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormState((prev) => ({ ...prev, email: e.target.value }));
+  };
+
+  const handleInterviewFieldChange =
+    (
+      field:
+        | 'companyName'
+        | 'interviewerName'
+        | 'interviewRound'
+        | 'targetRole'
+        | 'techStack'
+        | 'resumeSummary'
+        | 'jobDescription'
+        | 'extraInstructions',
+    ) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+      setFormState((prev) => ({ ...prev, [field]: e.target.value }));
+    };
+
+  const handleResumeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file =
+      e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const supportedExtensions =
+      ['.pdf', '.doc', '.docx', '.txt', '.md', '.markdown'];
+    const lowerName =
+      file.name.toLowerCase();
+    const isSupported =
+      supportedExtensions.some((extension) => lowerName.endsWith(extension));
+
+    if (!isSupported) {
+      setFormState((prev) => ({
+        ...prev,
+        error: 'Please upload a PDF, DOC, DOCX, TXT, or MD resume.',
+        resumeFileName: file.name,
+      }));
+      e.target.value = '';
+
+      return;
+    }
+
+    setFormState((prev) => ({
+      ...prev,
+      isResumeUploading: true,
+      resumeFileName: file.name,
+      error: '',
+    }));
+
+    try {
+      const extractedResume =
+        await resumeService.extract(file);
+
+      setFormState((prev) => ({
+        ...prev,
+        resumeSummary: extractedResume.text,
+        resumeFileName: extractedResume.fileName || file.name,
+        isResumeUploading: false,
+        error: '',
+      }));
+    } catch (error: any) {
+      setFormState((prev) => ({
+        ...prev,
+        isResumeUploading: false,
+        error:
+          error?.message ||
+          error?.response?.data?.message ||
+          'Could not extract text from this resume. Please paste the resume text.',
+      }));
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const saveInterviewMetadata = async () => {
+    await window.electronAPI.setInterviewMetadata({
+      companyName: formState.companyName.trim(),
+      interviewerName: formState.interviewerName.trim(),
+      interviewRound: formState.interviewRound.trim(),
+      answerDepth: formState.answerDepth,
+      targetRole: formState.targetRole.trim(),
+      techStack: formState.techStack.trim(),
+      resumeSummary: formState.resumeSummary.trim(),
+      jobDescription: formState.jobDescription.trim(),
+      extraInstructions: formState.extraInstructions.trim(),
+    });
   };
 
   const handleSignUp = async (): Promise<void> => {
@@ -185,6 +304,8 @@ export function AuthForm({ setUser }: AuthFormProps) {
     setFormState((prev) => ({ ...prev, isLoading: true, error: '' }));
 
     try {
+      await saveInterviewMetadata();
+
       if (formState.isSignUp) {
         await handleSignUp();
       } else {
@@ -214,12 +335,19 @@ export function AuthForm({ setUser }: AuthFormProps) {
     }));
   };
 
-  const isFormValid = formState.email && formState.password && !formState.passwordError;
+  const isFormValid =
+    formState.email &&
+    formState.password &&
+    formState.companyName &&
+    formState.interviewerName &&
+    formState.interviewRound &&
+    !formState.isResumeUploading &&
+    !formState.passwordError;
 
   return (
-    <div className="min-h-[420px] bg-black/90 rounded-xl flex flex-col">
-      <div className="flex flex-col items-center justify-center flex-1 px-3 pb-1">
-        <div className="w-full max-w-[320px] space-y-5 p-3">
+    <div className="min-h-[520px] max-h-[calc(100vh-24px)] w-[520px] max-w-[calc(100vw-24px)] mx-auto overflow-y-auto bg-black/70 rounded-xl border border-white/10 flex flex-col backdrop-blur-md shadow-lg">
+      <div className="flex flex-col items-center justify-center flex-1 px-5 pb-1">
+        <div className="w-full max-w-[460px] space-y-5 p-3">
           <div className="flex flex-col items-center justify-center space-y-4">
             <h2 className="text-lg font-semibold text-gray-100">
               {formState.isSignUp ? 'Create account' : 'Log in'}
@@ -238,7 +366,7 @@ export function AuthForm({ setUser }: AuthFormProps) {
                     placeholder="Email address"
                     value={formState.email}
                     onChange={handleEmailChange}
-                    className={`w-full px-3 py-2 text-gray-100 rounded-lg border bg-[#1E2530]/90 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors ${
+                    className={`w-full px-3 py-2 text-gray-100 rounded-lg border bg-[#1E2530]/70 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors ${
                       formState.error
                         ? 'border-red-500 focus:border-red-500'
                         : 'border-gray-700 focus:border-gray-600'
@@ -249,13 +377,49 @@ export function AuthForm({ setUser }: AuthFormProps) {
                     <p className="text-sm text-red-400 px-1">{formState.error}</p>
                   )}
                 </div>
+                <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-semibold text-cyan-100">
+                        Resume first
+                      </p>
+                      <p className="text-[10px] leading-4 text-cyan-100/60">
+                        Used for intro, project architecture, and experience answers.
+                      </p>
+                    </div>
+                    {formState.resumeFileName && (
+                      <span className="max-w-[180px] truncate rounded-full border border-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-100/80">
+                        {formState.resumeFileName}
+                      </span>
+                    )}
+                  </div>
+                  <label className="mb-2 block cursor-pointer rounded-md border border-dashed border-cyan-500/30 bg-black/20 px-3 py-2 text-center text-[11px] font-medium text-cyan-100/80 hover:border-cyan-400/50 hover:text-cyan-100">
+                    {formState.isResumeUploading
+                      ? 'Extracting resume...'
+                      : 'Upload PDF / DOC / DOCX'}
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt,.md,.markdown,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+                      onChange={handleResumeFileChange}
+                      disabled={formState.isResumeUploading}
+                      className="hidden"
+                    />
+                  </label>
+                  <textarea
+                    placeholder="Paste resume text here if you have PDF/DOCX. Include latest project, role, tech stack, responsibilities, and achievements."
+                    value={formState.resumeSummary}
+                    onChange={handleInterviewFieldChange('resumeSummary')}
+                    rows={4}
+                    className="w-full resize-y px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
+                  />
+                </div>
                 <div className="space-y-1">
                   <input
                     type="password"
                     placeholder="Password"
                     value={formState.password}
                     onChange={handlePasswordChange}
-                    className={`w-full px-3 py-2 text-gray-100 rounded-lg border bg-[#1E2530]/90 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors ${
+                    className={`w-full px-3 py-2 text-gray-100 rounded-lg border bg-[#1E2530]/70 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors ${
                       formState.passwordError
                         ? 'border-red-500 focus:border-red-500'
                         : 'border-gray-700 focus:border-gray-600'
@@ -266,6 +430,83 @@ export function AuthForm({ setUser }: AuthFormProps) {
                     <p className="text-sm text-red-400 px-1">{formState.passwordError}</p>
                   )}
                 </div>
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    placeholder="Company name"
+                    value={formState.companyName}
+                    onChange={handleInterviewFieldChange('companyName')}
+                    className="w-full px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    placeholder="Interviewer name"
+                    value={formState.interviewerName}
+                    onChange={handleInterviewFieldChange('interviewerName')}
+                    className="w-full px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <select
+                    value={formState.interviewRound}
+                    onChange={handleInterviewFieldChange('interviewRound')}
+                    className="w-full px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium transition-colors"
+                    required
+                  >
+                    <option value="" className="bg-[#1E2530] text-gray-400">
+                      Select round
+                    </option>
+                    <option value="1st Round" className="bg-[#1E2530]">
+                      1st Round
+                    </option>
+                    <option value="2nd Round" className="bg-[#1E2530]">
+                      2nd Round
+                    </option>
+                    <option value="Managerial Round" className="bg-[#1E2530]">
+                      Managerial Round
+                    </option>
+                    <option value="HR Round" className="bg-[#1E2530]">
+                      HR Round
+                    </option>
+                    <option value="Final Round" className="bg-[#1E2530]">
+                      Final Round
+                    </option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input
+                    type="text"
+                    placeholder="Target role"
+                    value={formState.targetRole}
+                    onChange={handleInterviewFieldChange('targetRole')}
+                    className="w-full px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Tech stack"
+                    value={formState.techStack}
+                    onChange={handleInterviewFieldChange('techStack')}
+                    className="w-full px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
+                  />
+                </div>
+                <textarea
+                  placeholder="Job description / interview focus"
+                  value={formState.jobDescription}
+                  onChange={handleInterviewFieldChange('jobDescription')}
+                  rows={2}
+                  className="w-full resize-none px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
+                />
+                <textarea
+                  placeholder="Extra instructions for answers"
+                  value={formState.extraInstructions}
+                  onChange={handleInterviewFieldChange('extraInstructions')}
+                  rows={2}
+                  className="w-full resize-none px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
+                />
                 <button
                   type="submit"
                   disabled={formState.isLoading || !isFormValid}
@@ -294,7 +535,7 @@ export function AuthForm({ setUser }: AuthFormProps) {
         </div>
       </div>
       <div className="flex justify-center mt-4">
-        <div className="text-xs text-gray-400 bg-[#1E2530]/80 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
+        <div className="text-xs text-gray-400 bg-[#1E2530]/70 rounded-lg py-2 px-4 flex items-center justify-center gap-4 backdrop-blur">
           <CommandButton label="Show/Hide" shortcut="B" />
           <CommandButton label="Move" shortcut="← ↑ → ↓" />
         </div>

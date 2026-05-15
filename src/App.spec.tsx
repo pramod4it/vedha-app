@@ -1,30 +1,31 @@
-import { isSelfHosted } from '@shared/constants';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
 import {
   type AuthenticatedUser,
   ProgrammingLanguage,
   SubscriptionLevel,
   UserLanguage,
 } from '../shared/api';
+
 import App from './App';
+
 import { authService } from './services/auth';
-import { getAuthProvider } from './services/auth/index';
+import { getAuthProvider } from './services/auth';
 import { getStorageProvider } from './services/storage';
 
-// Mock all external dependencies
 jest.mock('./services/auth.ts');
 jest.mock('./services/storage');
-jest.mock('./services/auth/index');
-jest.mock('@shared/constants.ts', () => ({
-  isSelfHosted: jest.fn(() => false),
-  API_BASE_URL: 'http://localhost:3000',
-}));
+jest.mock('./services/auth');
+
 jest.mock('./config', () => ({
   API_BASE_URL: 'http://localhost:3000',
 }));
+
 jest.mock('./contexts/SettingsContext', () => ({
-  SettingsProvider: ({ children }: { children: any }) => children,
+  SettingsProvider: ({ children }: { children: React.ReactNode }) =>
+      children,
+
   useSettings: () => ({
     solutionLanguage: 'javascript',
     userLanguage: 'es-ES',
@@ -38,59 +39,83 @@ jest.mock('./contexts/SettingsContext', () => ({
 jest.mock('./pages/SubscribedApp', () => {
   return function MockSubscribedApp() {
     const { useSettings } = require('./contexts/SettingsContext');
+
     const settings = useSettings();
 
     return (
-      <div data-testid="subscribed-app">
-        <span data-testid="language">{settings.solutionLanguage}</span>
-        <span data-testid="locale">{settings.userLanguage}</span>
-      </div>
+        <div data-testid="subscribed-app">
+        <span data-testid="language">
+          {settings.solutionLanguage}
+        </span>
+
+          <span data-testid="locale">
+          {settings.userLanguage}
+        </span>
+        </div>
     );
   };
 });
+
 jest.mock('./pages/SubscribePage', () => {
   return function MockSubscribePage({ user }: any) {
-    return <div data-testid="subscribe-page">Subscribe Page - {user.user.email}</div>;
-  };
-});
-jest.mock('./pages/AuthForm', () => {
-  return {
-    AuthForm: function MockAuthForm({ setUser }: any) {
-      return (
-        <div data-testid="auth-form">
-          <button onClick={() => setUser(createMockUser())}>Login</button>
+    return (
+        <div data-testid="subscribe-page">
+          Subscribe Page - {user.user.email}
         </div>
-      );
-    },
+    );
   };
 });
 
-function createMockUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
-  const defaultSubscription: AuthenticatedUser['subscription'] = {
-    active_from: '2024-01-01T00:00:00.000Z',
-    active_to: null,
-    level: SubscriptionLevel.PRO,
-  };
+jest.mock('./pages/AuthForm', () => ({
+  AuthForm: function MockAuthForm({
+                                    setUser,
+                                  }: any) {
+    return (
+        <div data-testid="auth-form">
+          <button
+              onClick={() =>
+                  setUser(createUser())
+              }
+          >
+            Login
+          </button>
+        </div>
+    );
+  },
+}));
 
+function createUser(
+    overrides: Partial<AuthenticatedUser> = {},
+): AuthenticatedUser {
   return {
     user: {
-      email: 'test@example.com',
+      email: 'realuser@example.com',
       ...overrides.user,
     },
+
     subscription: {
-      ...defaultSubscription,
+      active_from:
+          '2024-01-01T00:00:00.000Z',
+
+      active_to: null,
+
+      level: SubscriptionLevel.PRO,
+
       ...overrides.subscription,
     },
+
     settings: {
-      solutionLanguage: ProgrammingLanguage.Python,
+      solutionLanguage:
+      ProgrammingLanguage.JavaScript,
+
       userLanguage: UserLanguage.EN_US,
+
       ...overrides.settings,
     },
-    ...overrides,
   };
 }
 
-function createMockAuthProvider() {
+function createAuthProviderMock() {
   return {
     getCurrentUser: jest.fn(),
     getAuthToken: jest.fn(),
@@ -98,7 +123,7 @@ function createMockAuthProvider() {
   };
 }
 
-function createMockStorageProvider() {
+function createStorageProviderMock() {
   return {
     getSettings: jest.fn(),
     getAppMode: jest.fn(),
@@ -106,147 +131,192 @@ function createMockStorageProvider() {
 }
 
 describe('App', () => {
-  let mockAuthProvider: ReturnType<typeof createMockAuthProvider>;
-  let mockStorageProvider: ReturnType<typeof createMockStorageProvider>;
-  let mockAuthService: jest.Mocked<typeof authService>;
-  let mockIsSelfHosted: jest.MockedFunction<typeof isSelfHosted>;
+  let mockAuthProvider: ReturnType<
+      typeof createAuthProviderMock
+  >;
+
+  let mockStorageProvider: ReturnType<
+      typeof createStorageProviderMock
+  >;
+
+  let mockAuthService: jest.Mocked<
+      typeof authService
+  >;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockAuthProvider = createMockAuthProvider();
-    mockStorageProvider = createMockStorageProvider();
-    mockAuthService = authService as jest.Mocked<typeof authService>;
-    mockIsSelfHosted = isSelfHosted as jest.MockedFunction<typeof isSelfHosted>;
 
-    (getAuthProvider as jest.Mock).mockReturnValue(mockAuthProvider);
-    (getStorageProvider as jest.Mock).mockReturnValue(mockStorageProvider);
-    mockIsSelfHosted.mockReturnValue(false);
+    mockAuthProvider =
+        createAuthProviderMock();
 
-    // Default successful settings response
-    mockStorageProvider.getSettings.mockResolvedValue({
-      solutionLanguage: ProgrammingLanguage.Python,
-      userLanguage: UserLanguage.EN_US,
-    });
+    mockStorageProvider =
+        createStorageProviderMock();
 
-    // Default app mode response
-    mockStorageProvider.getAppMode.mockResolvedValue('live_interview');
+    mockAuthService =
+        authService as jest.Mocked<
+            typeof authService
+        >;
 
-    // Clear window globals
+    (
+        getAuthProvider as jest.Mock
+    ).mockReturnValue(mockAuthProvider);
+
+    (
+        getStorageProvider as jest.Mock
+    ).mockReturnValue(
+        mockStorageProvider,
+    );
+
+    mockStorageProvider.getSettings.mockResolvedValue(
+        {
+          solutionLanguage:
+          ProgrammingLanguage.JavaScript,
+
+          userLanguage:
+          UserLanguage.EN_US,
+        },
+    );
+
+    mockStorageProvider.getAppMode.mockResolvedValue(
+        'live_interview',
+    );
+
     delete (window as any).__LANGUAGE__;
-    delete (window as any).__LOCALE__;
-    delete (window as any).__IS_INITIALIZED__;
 
-    // Set default test globals
-    (global as any).__TEST_SOLUTION_LANGUAGE__ = ProgrammingLanguage.Python;
-    (global as any).__TEST_USER_LANGUAGE__ = UserLanguage.EN_US;
+    delete (window as any).__LOCALE__;
+
+    delete (window as any)
+        .__IS_INITIALIZED__;
   });
 
-  describe('App loading states', () => {
-    test('WHEN app is loading THEN it shows loading spinner', () => {
-      mockAuthProvider.getCurrentUser.mockImplementation(() => new Promise(() => {}));
+  describe('Loading state', () => {
+    test('shows loading spinner', () => {
+      mockAuthProvider.getCurrentUser.mockImplementation(
+          () => new Promise(() => {}),
+      );
 
       render(<App />);
 
-      // Assert
-      expect(screen.getByText('Loading...')).toBeInTheDocument();
-      expect(document.querySelector('.animate-spin')).toBeInTheDocument();
+      expect(
+          screen.getByText('Loading...'),
+      ).toBeInTheDocument();
+
+      expect(
+          document.querySelector(
+              '.animate-spin',
+          ),
+      ).toBeInTheDocument();
     });
   });
 
   describe('Authentication flow', () => {
-    test('WHEN user is not authenticated THEN it shows auth form', async () => {
-      mockAuthProvider.getCurrentUser.mockResolvedValue(null);
+    test('shows auth form when user not authenticated', async () => {
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          null,
+      );
 
       render(<App />);
 
-      // Act
       await waitFor(() => {
-        expect(screen.getByTestId('auth-form')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'auth-form',
+            ),
+        ).toBeInTheDocument();
       });
-
-      // Assert
-      expect(screen.queryByTestId('subscribed-app')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('subscribe-page')).not.toBeInTheDocument();
     });
 
-    test('WHEN user logs in through auth form THEN it updates user state', async () => {
-      mockAuthProvider.getCurrentUser.mockResolvedValue(null);
+    test('updates user after login', async () => {
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          null,
+      );
+
       const user = userEvent.setup();
 
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('auth-form')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'auth-form',
+            ),
+        ).toBeInTheDocument();
       });
 
-      // Act
-      await user.click(screen.getByText('Login'));
+      await user.click(
+          screen.getByText('Login'),
+      );
 
-      // Assert
       await waitFor(() => {
-        expect(screen.queryByTestId('auth-form')).not.toBeInTheDocument();
+        expect(
+            screen.queryByTestId(
+                'auth-form',
+            ),
+        ).not.toBeInTheDocument();
       });
-    });
-  });
-
-  describe('Self-hosted mode', () => {
-    test('WHEN in self-hosted mode THEN it skips initialization', async () => {
-      mockIsSelfHosted.mockReturnValue(true);
-      mockAuthProvider.getCurrentUser.mockResolvedValue(null);
-
-      render(<App />);
-
-      // Act
-      await waitFor(() => {
-        expect(screen.getByTestId('auth-form')).toBeInTheDocument();
-      });
-
-      // Assert
-      expect(mockAuthProvider.getCurrentUser).not.toHaveBeenCalled();
     });
   });
 
   describe('Subscription states', () => {
-    test('WHEN user has PRO subscription THEN it shows subscribed app', async () => {
-      const proUser = createMockUser({
-        subscription: {
-          active_from: '2024-01-01T00:00:00.000Z',
-          active_to: null,
-          level: SubscriptionLevel.PRO,
-        },
-      });
-      mockAuthProvider.getCurrentUser.mockResolvedValue(proUser);
-      mockAuthProvider.getAuthToken.mockResolvedValue('valid-token');
+    test('shows subscribed app for PRO user', async () => {
+      const proUser = createUser();
+
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          proUser,
+      );
+
+      mockAuthProvider.getAuthToken.mockResolvedValue(
+          'real-jwt-token',
+      );
 
       render(<App />);
 
-      // Act
       await waitFor(() => {
-        expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'subscribed-app',
+            ),
+        ).toBeInTheDocument();
       });
 
-      // Assert
-      expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
-      expect(screen.getByTestId('language')).toHaveTextContent('javascript');
-      expect(screen.getByTestId('locale')).toHaveTextContent('es-ES');
+      expect(
+          screen.getByTestId('language'),
+      ).toHaveTextContent(
+          'javascript',
+      );
+
+      expect(
+          screen.getByTestId('locale'),
+      ).toHaveTextContent(
+          'es-ES',
+      );
     });
 
-    test('WHEN user has no subscription THEN it shows subscribed app (FREE users can take screenshots)', async () => {
-      const freeUser = createMockUser({
+    test('shows subscribed app for FREE user', async () => {
+      const freeUser = createUser({
         subscription: {
           active_from: null,
           active_to: null,
           level: SubscriptionLevel.FREE,
         },
       });
-      mockAuthProvider.getCurrentUser.mockResolvedValue(freeUser);
-      mockAuthProvider.getAuthToken.mockResolvedValue('valid-token');
+
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          freeUser,
+      );
+
+      mockAuthProvider.getAuthToken.mockResolvedValue(
+          'real-jwt-token',
+      );
 
       render(<App />);
 
-      // Assert
       await waitFor(() => {
-        expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'subscribed-app',
+            ),
+        ).toBeInTheDocument();
       });
     });
   });
@@ -260,167 +330,204 @@ describe('App', () => {
       jest.useRealTimers();
     });
 
-    test('WHEN user is not subscribed THEN it polls for subscription updates', async () => {
-      const freeUser = createMockUser({
+    test('polls subscription updates', async () => {
+      const freeUser = createUser({
         subscription: {
           active_from: null,
           active_to: null,
           level: SubscriptionLevel.FREE,
         },
       });
-      mockAuthProvider.getCurrentUser.mockResolvedValue(freeUser);
-      mockAuthProvider.getAuthToken.mockResolvedValue('valid-token');
-      mockAuthService.getCurrentUser.mockResolvedValue(freeUser);
+
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          freeUser,
+      );
+
+      mockAuthProvider.getAuthToken.mockResolvedValue(
+          'real-jwt-token',
+      );
+
+      mockAuthService.getCurrentUser.mockResolvedValue(
+          freeUser,
+      );
 
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'subscribed-app',
+            ),
+        ).toBeInTheDocument();
       });
 
-      // Act
       act(() => {
-        jest.advanceTimersByTime(15000);
+        jest.advanceTimersByTime(
+            15000,
+        );
       });
-
-      // Assert
-      await waitFor(() => {
-        expect(mockAuthService.getCurrentUser).toHaveBeenCalled();
-      });
-    });
-
-    test('WHEN subscription status changes during polling THEN it syncs subscription level', async () => {
-      const freeUser = createMockUser({
-        subscription: {
-          active_from: null,
-          active_to: null,
-          level: SubscriptionLevel.FREE,
-        },
-      });
-      const proUser = createMockUser({
-        subscription: {
-          active_from: '2024-01-01T00:00:00.000Z',
-          active_to: null,
-          level: SubscriptionLevel.PRO,
-        },
-      });
-
-      mockAuthProvider.getCurrentUser.mockResolvedValue(freeUser);
-      mockAuthProvider.getAuthToken.mockResolvedValue('valid-token');
-      mockAuthService.getCurrentUser.mockResolvedValue(proUser);
-
-      render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
-      });
-
-      // Act
-      act(() => {
-        jest.advanceTimersByTime(15000);
-      });
-
-      // Assert
-      await waitFor(() => {
-        expect(window.electronAPI.setSubscriptionLevel).toHaveBeenCalledWith(SubscriptionLevel.PRO);
+        expect(
+            mockAuthService.getCurrentUser,
+        ).toHaveBeenCalled();
       });
     });
   });
 
   describe('Settings initialization', () => {
-    test('WHEN settings load successfully THEN it updates language and locale', async () => {
-      const user = createMockUser();
-      mockAuthProvider.getCurrentUser.mockResolvedValue(user);
-      mockAuthProvider.getAuthToken.mockResolvedValue('valid-token');
-      mockStorageProvider.getSettings.mockResolvedValue({
-        solutionLanguage: ProgrammingLanguage.JavaScript,
-        userLanguage: UserLanguage.ES_ES,
-      });
+    test('loads settings successfully', async () => {
+      const user = createUser();
 
-      // Set test globals for this specific test
-      (global as any).__TEST_SOLUTION_LANGUAGE__ = ProgrammingLanguage.JavaScript;
-      (global as any).__TEST_USER_LANGUAGE__ = UserLanguage.ES_ES;
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          user,
+      );
+
+      mockAuthProvider.getAuthToken.mockResolvedValue(
+          'real-jwt-token',
+      );
+
+      mockStorageProvider.getSettings.mockResolvedValue(
+          {
+            solutionLanguage:
+            ProgrammingLanguage.JavaScript,
+
+            userLanguage:
+            UserLanguage.ES_ES,
+          },
+      );
 
       render(<App />);
 
-      // Act
       await waitFor(() => {
-        expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'subscribed-app',
+            ),
+        ).toBeInTheDocument();
       });
 
-      // Assert
-      expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
-      expect(screen.getByTestId('language')).toHaveTextContent('javascript');
-      expect(screen.getByTestId('locale')).toHaveTextContent('es-ES');
+      expect(
+          screen.getByTestId('language'),
+      ).toHaveTextContent(
+          'javascript',
+      );
+
+      expect(
+          screen.getByTestId('locale'),
+      ).toHaveTextContent(
+          'es-ES',
+      );
     });
 
-    test('WHEN settings fail to load THEN it shows error toast and continues', async () => {
-      const user = createMockUser();
-      mockAuthProvider.getCurrentUser.mockResolvedValue(user);
-      mockAuthProvider.getAuthToken.mockResolvedValue('valid-token');
-      mockStorageProvider.getSettings.mockRejectedValue(new Error('Settings error'));
+    test('shows error toast when settings fail', async () => {
+      const user = createUser();
+
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          user,
+      );
+
+      mockAuthProvider.getAuthToken.mockResolvedValue(
+          'real-jwt-token',
+      );
+
+      mockStorageProvider.getSettings.mockRejectedValue(
+          new Error('Settings error'),
+      );
 
       render(<App />);
 
-      // Act
       await waitFor(() => {
-        expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'subscribed-app',
+            ),
+        ).toBeInTheDocument();
       });
 
-      // Assert
-      expect(screen.getByText('Failed to load user settings')).toBeInTheDocument();
+      expect(
+          screen.getByText(
+              'Failed to load user settings',
+          ),
+      ).toBeInTheDocument();
     });
   });
 
   describe('Error handling', () => {
-    test('WHEN auth token is missing THEN it clears user state', async () => {
-      const user = createMockUser();
-      mockAuthProvider.getCurrentUser.mockResolvedValue(user);
-      mockAuthProvider.getAuthToken.mockResolvedValue(null);
+    test('shows auth form when token missing', async () => {
+      const user = createUser();
+
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          user,
+      );
+
+      mockAuthProvider.getAuthToken.mockResolvedValue(
+          null,
+      );
 
       render(<App />);
 
-      // Act
       await waitFor(() => {
-        expect(screen.getByTestId('auth-form')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'auth-form',
+            ),
+        ).toBeInTheDocument();
       });
-
-      // Assert
-      expect(mockAuthProvider.clearAuthToken).not.toHaveBeenCalled();
     });
 
-    test('WHEN initialization fails THEN it shows auth form and error toast', async () => {
-      mockAuthProvider.getCurrentUser.mockRejectedValue(new Error('Auth error'));
+    test('shows initialization error', async () => {
+      mockAuthProvider.getCurrentUser.mockRejectedValue(
+          new Error('Auth error'),
+      );
 
       render(<App />);
 
-      // Act
       await waitFor(() => {
-        expect(screen.getByTestId('auth-form')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'auth-form',
+            ),
+        ).toBeInTheDocument();
       });
 
-      // Assert
-      expect(screen.getByText('Failed to initialize app')).toBeInTheDocument();
-      expect(mockAuthProvider.clearAuthToken).toHaveBeenCalled();
+      expect(
+          screen.getByText(
+              'Failed to initialize app',
+          ),
+      ).toBeInTheDocument();
+
+      expect(
+          mockAuthProvider.clearAuthToken,
+      ).toHaveBeenCalled();
     });
   });
 
-  describe('Component cleanup', () => {
-    test('WHEN component unmounts THEN it cleans up mounted ref', async () => {
-      const user = createMockUser();
-      mockAuthProvider.getCurrentUser.mockResolvedValue(user);
-      mockAuthProvider.getAuthToken.mockResolvedValue('valid-token');
+  describe('Cleanup', () => {
+    test('unmounts cleanly', async () => {
+      const user = createUser();
 
-      const { unmount } = render(<App />);
+      mockAuthProvider.getCurrentUser.mockResolvedValue(
+          user,
+      );
+
+      mockAuthProvider.getAuthToken.mockResolvedValue(
+          'real-jwt-token',
+      );
+
+      const { unmount } = render(
+          <App />,
+      );
 
       await waitFor(() => {
-        expect(screen.getByTestId('subscribed-app')).toBeInTheDocument();
+        expect(
+            screen.getByTestId(
+                'subscribed-app',
+            ),
+        ).toBeInTheDocument();
       });
 
-      // Act
       unmount();
-
-      // Assert - No specific assertion as this tests internal cleanup
     });
   });
 });

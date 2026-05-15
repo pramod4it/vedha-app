@@ -1,36 +1,66 @@
 import type React from 'react';
-import { createContext, type ReactNode, useContext } from 'react';
+
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+} from 'react';
+
 import { AppMode } from '../../shared/api';
+
 import { useAppMode } from '../contexts/appMode';
 
 interface AppModeLayoutContextType {
   currentAppMode: AppMode;
+
   isLiveInterview: boolean;
-  isLeetcodeSolver: boolean;
 }
 
-const AppModeLayoutContext = createContext<AppModeLayoutContextType | undefined>(undefined);
+const AppModeLayoutContext =
+    createContext<
+        AppModeLayoutContextType | undefined
+    >(undefined);
 
 interface AppModeLayoutProviderProps {
   children: ReactNode;
 }
 
-export const AppModeLayoutProvider: React.FC<AppModeLayoutProviderProps> = ({ children }) => {
-  const { currentAppMode } = useAppMode();
+export const AppModeLayoutProvider:
+    React.FC<AppModeLayoutProviderProps> =
+    ({
+       children,
+     }) => {
+      const { currentAppMode } =
+          useAppMode();
 
-  const value: AppModeLayoutContextType = {
-    currentAppMode,
-    isLiveInterview: currentAppMode === AppMode.LIVE_INTERVIEW,
-    isLeetcodeSolver: currentAppMode === AppMode.LEETCODE_SOLVER,
-  };
+      const value:
+          AppModeLayoutContextType = {
+        currentAppMode,
 
-  return <AppModeLayoutContext.Provider value={value}>{children}</AppModeLayoutContext.Provider>;
-};
+        isLiveInterview:
+            currentAppMode ===
+            AppMode.LIVE_INTERVIEW,
+      };
+
+      return (
+          <AppModeLayoutContext.Provider
+              value={value}
+          >
+            {children}
+          </AppModeLayoutContext.Provider>
+      );
+    };
 
 export function useAppModeLayout() {
-  const context = useContext(AppModeLayoutContext);
+  const context =
+      useContext(
+          AppModeLayoutContext,
+      );
+
   if (!context) {
-    throw new Error('useAppModeLayout must be used within an AppModeLayoutProvider');
+    throw new Error(
+        'useAppModeLayout must be used within an AppModeLayoutProvider',
+    );
   }
 
   return context;

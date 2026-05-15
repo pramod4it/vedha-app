@@ -35,16 +35,16 @@ interface ToastProps extends React.ComponentPropsWithoutRef<typeof ToastPrimitiv
 
 const toastVariants: Record<ToastVariant, { icon: React.ReactNode; bgColor: string }> = {
   neutral: {
-    icon: <Info className="h-3 w-3 text-amber-700" />,
-    bgColor: 'bg-amber-100',
+    icon: <Info className="h-3 w-3 text-amber-300/80" />,
+    bgColor: 'border border-amber-400/15 bg-zinc-950/65 backdrop-blur-md',
   },
   success: {
-    icon: <CheckCircle2 className="h-3 w-3 text-emerald-700" />,
-    bgColor: 'bg-emerald-100',
+    icon: <CheckCircle2 className="h-3 w-3 text-emerald-300/80" />,
+    bgColor: 'border border-emerald-400/15 bg-zinc-950/65 backdrop-blur-md',
   },
   error: {
-    icon: <AlertCircle className="h-3 w-3 text-red-700" />,
-    bgColor: 'bg-red-100',
+    icon: <AlertCircle className="h-3 w-3 text-red-300/80" />,
+    bgColor: 'border border-red-400/15 bg-zinc-950/65 backdrop-blur-md',
   },
 };
 
@@ -54,7 +54,7 @@ const Toast = React.forwardRef<React.ElementRef<typeof ToastPrimitive.Root>, Toa
       ref={ref}
       duration={4000}
       className={cn(
-        'group pointer-events-auto relative flex w-full items-center space-x-2 overflow-hidden rounded-md p-2',
+        'group pointer-events-auto relative flex w-full items-center space-x-2 overflow-hidden rounded-md p-2 shadow-[0_10px_40px_rgba(0,0,0,0.35)]',
         toastVariants[variant].bgColor,
         className,
       )}
@@ -62,7 +62,7 @@ const Toast = React.forwardRef<React.ElementRef<typeof ToastPrimitive.Root>, Toa
     >
       {toastVariants[variant].icon}
       <div className="flex-1">{props.children}</div>
-      <ToastPrimitive.Close className="absolute right-1 top-1 rounded-md p-0.5 text-zinc-500 opacity-0 transition-opacity hover:text-zinc-700 group-hover:opacity-100">
+      <ToastPrimitive.Close className="absolute right-1 top-1 rounded-md p-0.5 text-zinc-500 opacity-0 transition-opacity hover:text-zinc-300 group-hover:opacity-100">
         <X className="h-2 w-2" />
       </ToastPrimitive.Close>
     </ToastPrimitive.Root>
@@ -76,7 +76,7 @@ const ToastAction = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitive.Action
     ref={ref}
-    className={cn('text-[0.65rem] font-medium text-zinc-600 hover:text-zinc-900', className)}
+    className={cn('text-[0.65rem] font-medium text-zinc-300 hover:text-white', className)}
     {...props}
   />
 ));
@@ -88,7 +88,7 @@ const ToastTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitive.Title
     ref={ref}
-    className={cn('text-[0.7rem] font-medium text-zinc-900', className)}
+    className={cn('text-[0.7rem] font-medium text-zinc-100', className)}
     {...props}
   />
 ));
@@ -100,7 +100,7 @@ const ToastDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitive.Description
     ref={ref}
-    className={cn('text-[0.65rem] text-zinc-600', className)}
+    className={cn('text-[0.65rem] text-zinc-300', className)}
     {...props}
   />
 ));

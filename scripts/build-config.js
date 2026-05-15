@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Get product name from environment variable or use default
-const productName = process.env.PRODUCT_NAME || 'Ezzi';
+const productName = process.env.PRODUCT_NAME || 'Vedha';
 
 // Create a safe filename version (replace spaces with hyphens, remove special chars)
 const safeProductName = productName

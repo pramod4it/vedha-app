@@ -68,9 +68,14 @@ export class AuthStorage {
   }
 
   clearAuthToken(): void {
-    this.store.delete(ELECTRON_STORAGE_KEYS.AUTH.TOKEN);
-    this.store.delete(ELECTRON_STORAGE_KEYS.AUTH.TOKEN_EXPIRY);
-    this.store.delete(ELECTRON_STORAGE_KEYS.AUTH.SUBSCRIPTION_LEVEL);
+
+    this.store.delete(
+        ELECTRON_STORAGE_KEYS.AUTH.TOKEN,
+    );
+
+    this.store.delete(
+        ELECTRON_STORAGE_KEYS.AUTH.TOKEN_EXPIRY,
+    );
   }
 
   isAuthenticated(): boolean {

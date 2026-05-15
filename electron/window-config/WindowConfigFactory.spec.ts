@@ -1,52 +1,68 @@
 import { AppMode } from '../../shared/api';
-import { LeetCodeSolverConfig } from './configs/LeetCodeSolverConfig';
+
 import { LiveInterviewConfig } from './configs/LiveInterviewConfig';
+
 import { WindowConfigFactory } from './WindowConfigFactory';
 
 describe('WindowConfigFactory', () => {
   beforeEach(() => {
-    (WindowConfigFactory as any).instance = null;
+    (WindowConfigFactory as any).instance =
+        null;
   });
 
   describe('getInstance', () => {
-    test('WHEN getInstance is called twice THEN it returns the same singleton', () => {
-      const a = WindowConfigFactory.getInstance();
-      const b = WindowConfigFactory.getInstance();
+    test(
+        'WHEN getInstance is called twice THEN it returns the same singleton',
 
-      // Assert
-      expect(a).toBe(b);
-    });
+        () => {
+          const a =
+              WindowConfigFactory.getInstance();
+
+          const b =
+              WindowConfigFactory.getInstance();
+
+          expect(a).toBe(b);
+        },
+    );
   });
 
   describe('getConfig', () => {
-    test('WHEN appMode is LIVE_INTERVIEW THEN it returns LiveInterviewConfig', () => {
-      const factory = WindowConfigFactory.getInstance();
+    test(
+        'WHEN appMode is LIVE_INTERVIEW THEN it returns LiveInterviewConfig',
 
-      // Act
-      const config = factory.getConfig(AppMode.LIVE_INTERVIEW);
+        () => {
+          const factory =
+              WindowConfigFactory.getInstance();
 
-      // Assert
-      expect(config).toBe(LiveInterviewConfig);
-    });
+          const config =
+              factory.getConfig(
+                  AppMode.LIVE_INTERVIEW,
+              );
 
-    test('WHEN appMode is LEETCODE_SOLVER THEN it returns LeetCodeSolverConfig', () => {
-      const factory = WindowConfigFactory.getInstance();
+          expect(config)
+              .toBe(
+                  LiveInterviewConfig,
+              );
+        },
+    );
 
-      // Act
-      const config = factory.getConfig(AppMode.LEETCODE_SOLVER);
+    test(
+        'WHEN appMode is unknown THEN it falls back to LiveInterviewConfig',
 
-      // Assert
-      expect(config).toBe(LeetCodeSolverConfig);
-    });
+        () => {
+          const factory =
+              WindowConfigFactory.getInstance();
 
-    test('WHEN appMode is unknown THEN it falls back to LiveInterviewConfig', () => {
-      const factory = WindowConfigFactory.getInstance();
+          const config =
+              factory.getConfig(
+                  'mystery' as AppMode,
+              );
 
-      // Act
-      const config = factory.getConfig('mystery' as AppMode);
-
-      // Assert
-      expect(config).toBe(LiveInterviewConfig);
-    });
+          expect(config)
+              .toBe(
+                  LiveInterviewConfig,
+              );
+        },
+    );
   });
 });

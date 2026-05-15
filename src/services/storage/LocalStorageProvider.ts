@@ -3,7 +3,13 @@ import { LOCAL_STORAGE_KEYS } from '@shared/storage';
 import type { IStorageProvider, UserSettings } from './StorageProvider';
 
 export class LocalStorageProvider implements IStorageProvider {
-  private readonly STORAGE_KEY = LOCAL_STORAGE_KEYS.EZZI_SETTINGS;
+  private readonly STORAGE_KEY = LOCAL_STORAGE_KEYS.VEDHA_SETTINGS;
+
+  private normalizeAppMode(appMode?: AppMode): AppMode {
+    return appMode === AppMode.LIVE_INTERVIEW
+      ? AppMode.LIVE_INTERVIEW
+      : AppMode.LIVE_INTERVIEW;
+  }
 
   getSettings(): Promise<UserSettings> {
     const stored = localStorage.getItem(this.STORAGE_KEY);
@@ -18,7 +24,7 @@ export class LocalStorageProvider implements IStorageProvider {
         return Promise.resolve({
           solutionLanguage: parsed.solutionLanguage || ProgrammingLanguage.Python,
           userLanguage: parsed.userLanguage || UserLanguage.EN_US,
-          appMode: parsed.appMode || AppMode.LIVE_INTERVIEW,
+          appMode: this.normalizeAppMode(parsed.appMode),
         });
       } catch (error) {
         console.warn('Failed to parse stored settings:', error);
@@ -65,6 +71,6 @@ export class LocalStorageProvider implements IStorageProvider {
   }
 
   async setAppMode(appMode: AppMode): Promise<void> {
-    await this.updateSettings({ appMode });
+    await this.updateSettings({ appMode: this.normalizeAppMode(appMode) });
   }
 }

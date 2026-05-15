@@ -28,9 +28,10 @@ export function useQueue() {
   const updateDimensions = useCallback(() => {
     if (contentRef.current) {
       let contentHeight = contentRef.current.scrollHeight;
-      const contentWidth = contentRef.current.scrollWidth;
+      let contentWidth = Math.max(contentRef.current.scrollWidth, 560);
       if (isTooltipVisible) {
-        contentHeight += tooltipHeight;
+        contentHeight = Math.max(contentHeight + tooltipHeight, 560);
+        contentWidth = Math.max(contentWidth, 600);
       }
       window.electronAPI
         .updateContentDimensions({
@@ -71,7 +72,7 @@ export function useQueue() {
   // Separate effect for tooltip-triggered dimension updates
   useEffect(() => {
     updateDimensions();
-  }, [isTooltipVisible, tooltipHeight, updateDimensions]);
+  }, [updateDimensions]);
 
   useEffect(() => {
     if (screenshots.length === 0) {

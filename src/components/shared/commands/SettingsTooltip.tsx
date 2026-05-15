@@ -36,23 +36,27 @@ const SettingsTooltip: React.FC<SettingsTooltipProps> = ({
     onTooltipVisibilityChange(isTooltipVisible, tooltipHeight);
   }, [isTooltipVisible, onTooltipVisibilityChange]);
 
-  const handleMouseEnter = () => {
-    setIsTooltipVisible(true);
+  const toggleTooltip = () => {
+    setIsTooltipVisible((visible) => !visible);
     sendToElectron(IPC_EVENTS.TOOLTIP.MOUSE_ENTER);
   };
 
-  const handleMouseLeave = () => {
+  const closeTooltip = () => {
     setIsTooltipVisible(false);
     sendToElectron(IPC_EVENTS.TOOLTIP.MOUSE_LEAVE);
   };
 
   return (
-    <div
-      className="relative inline-block"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <GearIcon />
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onClick={toggleTooltip}
+        className="flex items-center justify-center"
+        aria-label="Open settings"
+        aria-expanded={isTooltipVisible}
+      >
+        <GearIcon />
+      </button>
       {isTooltipVisible && (
         <ShortcutsTooltip
           tooltipRef={tooltipRef}
@@ -62,6 +66,7 @@ const SettingsTooltip: React.FC<SettingsTooltipProps> = ({
           onSignOut={onSignOut}
           isFree={isFree}
           userEmail={userEmail}
+          onClose={closeTooltip}
         />
       )}
     </div>

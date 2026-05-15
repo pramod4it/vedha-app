@@ -1,4 +1,4 @@
-import type { AppMode, SubscriptionLevel } from './api';
+import type { AppMode, InterviewMetadata, SubscriptionLevel } from './api';
 
 /**
  * Centralized storage keys and configuration for both Electron and React
@@ -21,12 +21,13 @@ export const ELECTRON_STORAGE_KEYS = {
   APP_SETTINGS: {
     APP_MODE: 'appMode',
     READABLE_VAR_NAMES: 'readableVarNames',
+    INTERVIEW_METADATA: 'interviewMetadata',
   },
 } as const;
 
 // React localStorage Keys
 export const LOCAL_STORAGE_KEYS = {
-  EZZI_SETTINGS: 'ezzi-settings',
+  VEDHA_SETTINGS: 'vedha-settings',
 } as const;
 
 // Storage Schema Types
@@ -40,4 +41,5 @@ export interface AuthStoreSchema {
 export interface AppStoreSchema {
   appMode: AppMode | null;
   readableVarNames: boolean | null;
+  interviewMetadata: InterviewMetadata | null;
 }

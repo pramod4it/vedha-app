@@ -12,14 +12,41 @@ import type { AppModeProcessor, ProcessingParams, ProcessingResult } from './App
 export class LiveInterviewProcessor implements AppModeProcessor {
   async processSolve(params: ProcessingParams): Promise<ProcessingResult<SolveResponse>> {
     try {
-      const { images, isMock, readableVarNames, signal, headers } = params;
-
+      const {
+        images,
+        isMock,
+        readableVarNames,
+        signal,
+        headers,
+        companyName,
+        interviewerName,
+        interviewRound,
+        answerDepth,
+        targetRole,
+        techStack,
+        resumeSummary,
+        jobDescription,
+        extraInstructions,
+      } = params;
+      console.log(
+          'CALLING AXIOS',
+          `${API_BASE_URL}${API_ENDPOINTS.SOLUTIONS.SOLVE}`,
+      );
       const extractResponse = await axios.post<SolveRequest, AxiosResponse<SolveResponse>>(
         `${API_BASE_URL}${API_ENDPOINTS.SOLUTIONS.SOLVE}`,
         {
           images,
           isMock,
           readableVarNames,
+          companyName,
+          interviewerName,
+          interviewRound,
+          answerDepth,
+          targetRole,
+          techStack,
+          resumeSummary,
+          jobDescription,
+          extraInstructions,
         },
         {
           signal,
@@ -27,9 +54,13 @@ export class LiveInterviewProcessor implements AppModeProcessor {
           headers,
         },
       );
-
+      console.log(
+          'AXIOS RESPONSE',
+          extractResponse.data,
+      );
       return { success: true, data: extractResponse.data };
     } catch (error: unknown) {
+      console.log(error);
       if (axios.isCancel(error)) {
         return {
           success: false,
@@ -57,7 +88,7 @@ export class LiveInterviewProcessor implements AppModeProcessor {
       if (axiosError.response?.status === 402) {
         return {
           success: false,
-          error: 'Upgrade to Pro to generate solutions. Visit getezzi.com to upgrade your plan.',
+          error: 'Upgrade to Pro to generate solutions. Visit vedha.com to upgrade your plan.',
         };
       }
 
@@ -111,7 +142,7 @@ export class LiveInterviewProcessor implements AppModeProcessor {
       if (axiosError.response?.status === 402) {
         return {
           success: false,
-          error: 'Upgrade to Pro to generate solutions. Visit getezzi.com to upgrade your plan.',
+          error: 'Upgrade to Pro to generate solutions. Visit vedha.com to upgrade your plan.',
         };
       }
 

@@ -1,4 +1,4 @@
-import { AppMode, SubscriptionLevel } from '../shared/api';
+import { AppMode, InterviewMetadata, SubscriptionLevel } from '../shared/api';
 
 export interface ElectronAPI {
   openSubscriptionPortal: (authData: {
@@ -67,6 +67,14 @@ export interface ElectronAPI {
     error?: string;
   }>;
   setAppMode: (appMode: AppMode) => Promise<{ success: boolean; error?: string }>;
+  setInterviewMetadata: (
+    metadata: InterviewMetadata,
+  ) => Promise<{ success: boolean; error?: string }>;
+  getInterviewMetadata: () => Promise<{
+    success: boolean;
+    metadata?: InterviewMetadata | null;
+    error?: string;
+  }>;
   getAppMode: () => Promise<{
     success: boolean;
     appMode?: AppMode;

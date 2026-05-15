@@ -25,16 +25,13 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   };
 
   return (
-    <div className="pt-2 w-fit">
-      <div className="text-xs text-gray-100 bg-[#1E2530]/80 rounded-lg py-2 px-4">
-        {/* Top section - Full width AppModeIndicator */}
-        <div className="w-full mb-2">
+    <div className="pt-2 w-fit max-w-full">
+      <div className="min-w-[320px] text-xs text-gray-100 bg-[#1E2530]/80 rounded-lg py-2 px-4">
+        <div className="w-full mb-2 flex justify-center">
           <AppModeIndicator />
         </div>
 
-        {/* Bottom section - All buttons in horizontal layout */}
-        <div className="flex items-center justify-center gap-4">
-          {/* Screenshot */}
+        <div className="flex items-center justify-center gap-3">
           <CommandButton
             label={
               screenshotCount === 0
@@ -46,53 +43,44 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             shortcut="H"
           />
 
-          {/* Solve Command */}
-          {screenshotCount > 0 && !isFree && <CommandButton label="Solve" shortcut="↵" />}
+          {screenshotCount > 0 && !isFree && <CommandButton label="Solve" shortcut="Enter" />}
 
-          {/* Start Over - Always visible */}
           {screenshotCount > 0 && <CommandButton label="Start Over" shortcut="G" />}
 
-          {/* Settings with Tooltip - Only show when no screenshots */}
-          {screenshotCount === 0 && (
-            <>
-              <CommandSeparator />
-              <SettingsTooltip
-                isFree={isFree}
-                userEmail={user.user.email}
-                shortcuts={[
-                  {
-                    label: 'Toggle Window',
-                    shortcut: [COMMAND_KEY, 'B'],
-                    description: 'Show or hide this window.',
-                  },
-                  {
-                    label: 'Take Screenshot',
-                    shortcut: [COMMAND_KEY, 'H'],
-                    description: 'Take a screenshot of the problem description.',
-                  },
-                  {
-                    label: 'Solve',
-                    shortcut: [COMMAND_KEY, '↵'],
-                    description:
-                      screenshotCount > 0
-                        ? 'Generate a solution based on the current problem.'
-                        : 'Take a screenshot first to generate a solution.',
-                    condition: screenshotCount > 0,
-                  },
-                  {
-                    label: 'Start Over',
-                    shortcut: [COMMAND_KEY, 'G'],
-                    description: 'Start fresh with a new question.',
-                    condition: screenshotCount > 0,
-                  },
-                ]}
-                currentAppMode={currentAppMode}
-                setAppMode={setAppMode}
-                onSignOut={handleSignOut}
-                onTooltipVisibilityChange={onTooltipVisibilityChange}
-              />
-            </>
-          )}
+          <CommandSeparator />
+          <SettingsTooltip
+            isFree={isFree}
+            userEmail={user.user.email}
+            shortcuts={[
+              {
+                label: 'Toggle Window',
+                shortcut: [COMMAND_KEY, 'B'],
+                description: 'Show or hide this window.',
+              },
+              {
+                label: 'Take Screenshot',
+                shortcut: [COMMAND_KEY, 'H'],
+                description: 'Take a screenshot of the problem description.',
+              },
+              {
+                label: 'Solve',
+                shortcut: [COMMAND_KEY, 'Enter'],
+                description:
+                  screenshotCount > 0
+                    ? 'Generate a solution based on the current problem.'
+                    : 'Take a screenshot first to generate a solution.',
+              },
+              {
+                label: 'Start Over',
+                shortcut: [COMMAND_KEY, 'G'],
+                description: 'Start fresh with a new question.',
+              },
+            ]}
+            currentAppMode={currentAppMode}
+            setAppMode={setAppMode}
+            onSignOut={handleSignOut}
+            onTooltipVisibilityChange={onTooltipVisibilityChange}
+          />
         </div>
       </div>
     </div>
