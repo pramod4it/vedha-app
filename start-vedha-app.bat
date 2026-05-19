@@ -70,16 +70,16 @@ if errorlevel 1 (
 )
 popd
 
-echo Starting renderer on http://localhost:54321 ...
-start "Vedha Renderer" cmd /k "cd /d ""%~dp0"" && set VITE_API_BASE_URL=%VITE_API_BASE_URL%&& set VITE_BACKEND_MANUAL_WS_URL=%VITE_BACKEND_MANUAL_WS_URL%&& corepack pnpm run dev:serve-renderer"
+echo Starting renderer support process on http://localhost:54321 ...
+start "Vedha Renderer" /min cmd /k "cd /d ""%~dp0"" && set VITE_API_BASE_URL=%VITE_API_BASE_URL%&& set VITE_BACKEND_MANUAL_WS_URL=%VITE_BACKEND_MANUAL_WS_URL%&& corepack pnpm run dev:serve-renderer"
 
 timeout /t 4 /nobreak >nul
 
 echo Launching Electron...
-start "Vedha Electron" cmd /k "cd /d ""%~dp0"" && set VITE_API_BASE_URL=%VITE_API_BASE_URL%&& set VITE_BACKEND_MANUAL_WS_URL=%VITE_BACKEND_MANUAL_WS_URL%&& corepack pnpm exec electron ."
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c cd /d ""%~dp0"" && set VITE_API_BASE_URL=%VITE_API_BASE_URL%&& set VITE_BACKEND_MANUAL_WS_URL=%VITE_BACKEND_MANUAL_WS_URL%&& corepack pnpm exec electron .' -WindowStyle Hidden"
 
 echo.
-echo Vedha app startup requested.
-echo Keep the opened terminal windows running while using the app.
+echo Vedha app startup requested. Use only the Vedha app window.
+echo The minimized renderer window is only a local support process.
 
 endlocal
