@@ -9,6 +9,37 @@ import { ScreenshotHelper } from './screenshot.helper';
 import { ShortcutsHelper } from './shortcuts';
 import { WindowConfigFactory } from './window-config/WindowConfigFactory';
 
+function installSafeMainProcessConsole(): void {
+  const ignoreBrokenPipe = (error: unknown) => {
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : '';
+
+    if (code !== 'EPIPE') {
+      throw error;
+    }
+  };
+
+  (['log', 'info', 'warn', 'error'] as const).forEach((method) => {
+    const originalMethod =
+      console[method].bind(console);
+
+    console[method] = (...args: unknown[]) => {
+      try {
+        originalMethod(...args);
+      } catch (error) {
+        ignoreBrokenPipe(error);
+      }
+    };
+  });
+
+  process.stdout?.on('error', ignoreBrokenPipe);
+  process.stderr?.on('error', ignoreBrokenPipe);
+}
+
+installSafeMainProcessConsole();
+
 const isDev = !app.isPackaged;
 
 const state = {

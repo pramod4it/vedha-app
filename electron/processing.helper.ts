@@ -410,6 +410,10 @@ export class ProcessingHelper {
                 interviewMetadata?.interviewerName,
             answerDepth:
                 interviewMetadata?.answerDepth,
+            chatSessionId:
+                interviewMetadata?.chatSessionId,
+            solutionLanguage:
+                interviewMetadata?.solutionLanguage,
             resumeSummary:
                 interviewMetadata?.resumeSummary,
             signal,
@@ -519,11 +523,26 @@ export class ProcessingHelper {
       const readableVarNames =
           AppStorage.getInstance().getReadableVarNames();
 
+      const interviewMetadata =
+          AppStorage.getInstance().getInterviewMetadata();
+
       const processingParams: ProcessingParams =
           {
             images,
             isMock,
             readableVarNames,
+            companyName:
+                interviewMetadata?.companyName,
+            interviewerName:
+                interviewMetadata?.interviewerName,
+            answerDepth:
+                interviewMetadata?.answerDepth,
+            chatSessionId:
+                interviewMetadata?.chatSessionId,
+            solutionLanguage:
+                interviewMetadata?.solutionLanguage,
+            resumeSummary:
+                interviewMetadata?.resumeSummary,
             signal,
             headers,
 

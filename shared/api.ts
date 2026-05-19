@@ -108,6 +108,26 @@ export interface SolveRequest {
   resumeSummary?: string;
 }
 
+export interface ChatRequest {
+  sessionId?: string;
+
+  message: string;
+
+  mode?: string;
+
+  language?: ProgrammingLanguage | string;
+
+  context?: string;
+
+  images?: string[];
+}
+
+export interface ChatResponse {
+  sessionId: string;
+
+  answer: string;
+}
+
 export interface InterviewMetadata {
   companyName: string;
   interviewerName: string;
@@ -272,23 +292,9 @@ export const API_ENDPOINTS = {
     USER: '/auth/user',
   },
 
-  SETTINGS: {
-    GET: '/user-settings',
-    UPDATE: '/user-settings',
-  },
-
-  SOLUTIONS: {
-    SOLVE: '/solutions/solve',
-    DEBUG: '/solutions/debug',
-  },
-
-  INTERVIEW_QUESTIONS: {
-    LIST: '/interview-questions',
-    CREATE: '/interview-questions',
-  },
-
-  RESUME: {
-    EXTRACT: '/resume/extract',
+  CHAT: {
+    SEND: '/chat',
+    STREAM: '/chat/stream',
   },
 } as const;
 

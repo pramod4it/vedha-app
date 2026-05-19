@@ -1,7 +1,4 @@
 import { SubscriptionLevel } from '../../../shared/api';
-import { isSelfHosted } from '../../../shared/constants';
-import { ApiStorageProvider } from './ApiStorageProvider';
-
 import { LocalStorageProvider } from './LocalStorageProvider';
 
 import type { IStorageProvider } from './StorageProvider';
@@ -18,10 +15,10 @@ export const getStorageProvider =
     (
         subscriptionLevel?: SubscriptionLevel,
     ): IStorageProvider => {
+        void subscriptionLevel;
+
         const providerKey =
-            isSelfHosted() || subscriptionLevel !== SubscriptionLevel.PRO
-                ? 'local'
-                : 'api';
+            'local';
 
         if (
             !storageProvider ||
@@ -29,9 +26,7 @@ export const getStorageProvider =
         ) {
 
             storageProvider =
-                providerKey === 'api'
-                    ? new ApiStorageProvider()
-                    : new LocalStorageProvider();
+                new LocalStorageProvider();
 
             storageProviderKey =
                 providerKey;

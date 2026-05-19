@@ -16,9 +16,11 @@ export interface ProcessingParams {
   signal: AbortSignal;
   headers: Record<string, string>;
   conversationId?: string;
+  chatSessionId?: string;
   companyName?: string;
   interviewerName?: string;
   answerDepth?: string;
+  solutionLanguage?: string;
   resumeSummary?: string;
 }
 

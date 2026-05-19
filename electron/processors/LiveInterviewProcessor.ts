@@ -1,9 +1,9 @@
 import axios, { type AxiosResponse } from 'axios';
 import {
   API_ENDPOINTS,
-  type DebugRequest,
   type DebugResponse,
-  type SolveRequest,
+  type ChatRequest,
+  type ChatResponse,
   type SolveResponse,
 } from '../../shared/api';
 import { API_BASE_URL } from '../../shared/constants';
@@ -14,29 +14,35 @@ export class LiveInterviewProcessor implements AppModeProcessor {
     try {
       const {
         images,
-        isMock,
-        readableVarNames,
         signal,
         headers,
         companyName,
         interviewerName,
         answerDepth,
+        chatSessionId,
+        solutionLanguage,
         resumeSummary,
       } = params;
       console.log(
-          'CALLING AXIOS',
-          `${API_BASE_URL}${API_ENDPOINTS.SOLUTIONS.SOLVE}`,
+        'CALLING CHAT API',
+        `${API_BASE_URL}${API_ENDPOINTS.CHAT.SEND}`,
       );
-      const extractResponse = await axios.post<SolveRequest, AxiosResponse<SolveResponse>>(
-        `${API_BASE_URL}${API_ENDPOINTS.SOLUTIONS.SOLVE}`,
+      const extractResponse = await axios.post<ChatRequest, AxiosResponse<ChatResponse>>(
+        `${API_BASE_URL}${API_ENDPOINTS.CHAT.SEND}`,
         {
+          sessionId: chatSessionId,
+          message:
+            'Analyze the screenshot(s) and answer the interview question naturally. If it is a coding question, explain the approach and provide code. If it is system design, include the required design sections.',
           images,
-          isMock,
-          readableVarNames,
-          companyName,
-          interviewerName,
-          answerDepth,
-          resumeSummary,
+          mode: answerDepth === 'systemdesign' ? 'SYSTEM_DESIGN' : answerDepth === 'medium' ? 'MEDIUM' : 'SHORT',
+          language: solutionLanguage || 'java',
+          context: [
+            companyName ? `Company: ${companyName}` : '',
+            interviewerName ? `Interviewer: ${interviewerName}` : '',
+            resumeSummary ? `Resume: ${resumeSummary}` : '',
+          ]
+            .filter(Boolean)
+            .join('\n'),
         },
         {
           signal,
@@ -48,7 +54,13 @@ export class LiveInterviewProcessor implements AppModeProcessor {
           'AXIOS RESPONSE',
           extractResponse.data,
       );
-      return { success: true, data: extractResponse.data };
+      return {
+        success: true,
+        data: toSolveResponse(
+          extractResponse.data.answer,
+          answerDepth,
+        ),
+      };
     } catch (error: unknown) {
       console.log(error);
       if (axios.isCancel(error)) {
@@ -91,11 +103,24 @@ export class LiveInterviewProcessor implements AppModeProcessor {
 
   async processDebug(params: ProcessingParams): Promise<ProcessingResult<DebugResponse>> {
     try {
-      const { images, isMock, readableVarNames, signal, headers } = params;
+      const {
+        images,
+        signal,
+        headers,
+        chatSessionId,
+        solutionLanguage,
+      } = params;
 
-      const response = await axios.post<DebugRequest, AxiosResponse<DebugResponse>>(
-        `${API_BASE_URL}${API_ENDPOINTS.SOLUTIONS.DEBUG}`,
-        { images, isMock, readableVarNames },
+      const response = await axios.post<ChatRequest, AxiosResponse<ChatResponse>>(
+        `${API_BASE_URL}${API_ENDPOINTS.CHAT.SEND}`,
+        {
+          sessionId: chatSessionId,
+          message:
+            'Analyze these extra screenshots as a follow-up to the current interview question. Correct or extend the previous answer.',
+          images,
+          mode: 'MEDIUM',
+          language: solutionLanguage || 'java',
+        },
         {
           signal,
           timeout: 300000,
@@ -103,7 +128,17 @@ export class LiveInterviewProcessor implements AppModeProcessor {
         },
       );
 
-      return { success: true, data: response.data };
+      return {
+        success: true,
+        data: {
+          code: '',
+          thoughts: [],
+          timeComplexity: 'N/A',
+          spaceComplexity: 'N/A',
+          conversationId: createConversationId(),
+          answerText: response.data.answer,
+        } as DebugResponse,
+      };
     } catch (error: unknown) {
       if (axios.isCancel(error)) {
         return {
@@ -142,4 +177,26 @@ export class LiveInterviewProcessor implements AppModeProcessor {
       };
     }
   }
+}
+
+function toSolveResponse(
+  answer: string,
+  answerDepth?: string,
+): SolveResponse {
+  return {
+    thoughts: [],
+    code: '',
+    answerText: answer,
+    diagramMermaid: '',
+    messageType: answerDepth === 'systemdesign' ? 'SYSTEM_DESIGN' : 'CHAT',
+    answerDepth: answerDepth === 'medium' || answerDepth === 'systemdesign' ? answerDepth : 'short',
+    timeComplexity: 'N/A',
+    spaceComplexity: 'N/A',
+    problemStatement: 'Screenshot interview question',
+    conversationId: createConversationId(),
+  };
+}
+
+function createConversationId(): string {
+  return `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

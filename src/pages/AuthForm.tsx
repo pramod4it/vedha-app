@@ -3,7 +3,6 @@ import { IPC_EVENTS } from '@shared/constants.ts';
 import React, { useState } from 'react';
 import CommandButton from '../components/shared/commands/CommandButton.tsx';
 import { getAuthProvider } from '../services/auth/index';
-import { resumeService } from '../services/resume.ts';
 import { sendToElectron } from '../utils/electron.ts';
 
 interface AuthFormProps {
@@ -41,6 +40,15 @@ const initialState: FormState = {
   isSignUp: false,
   shake: false,
 };
+
+function createChatSessionId(): string {
+  const randomId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  return `chat-${randomId}`;
+}
 
 export function AuthForm({ setUser }: AuthFormProps) {
   const [formState, setFormState] = useState<FormState>(initialState);
@@ -135,7 +143,7 @@ export function AuthForm({ setUser }: AuthFormProps) {
     }
 
     const supportedExtensions =
-      ['.pdf', '.doc', '.docx', '.txt', '.md', '.markdown'];
+      ['.txt', '.md', '.markdown'];
     const lowerName =
       file.name.toLowerCase();
     const isSupported =
@@ -144,7 +152,7 @@ export function AuthForm({ setUser }: AuthFormProps) {
     if (!isSupported) {
       setFormState((prev) => ({
         ...prev,
-        error: 'Please upload a PDF, DOC, DOCX, TXT, or MD resume.',
+        error: 'Please upload TXT or MD, or paste your resume text.',
         resumeFileName: file.name,
       }));
       e.target.value = '';
@@ -161,7 +169,10 @@ export function AuthForm({ setUser }: AuthFormProps) {
 
     try {
       const extractedResume =
-        await resumeService.extract(file);
+        {
+          fileName: file.name,
+          text: await file.text(),
+        };
 
       setFormState((prev) => ({
         ...prev,
@@ -177,7 +188,7 @@ export function AuthForm({ setUser }: AuthFormProps) {
         error:
           error?.message ||
           error?.response?.data?.message ||
-          'Could not extract text from this resume. Please paste the resume text.',
+          'Could not read this file. Please paste the resume text.',
       }));
     } finally {
       e.target.value = '';
@@ -212,6 +223,27 @@ export function AuthForm({ setUser }: AuthFormProps) {
     });
   };
 
+  const startNewLoginChatSession = async () => {
+    const existingMetadata =
+      await window.electronAPI.getInterviewMetadata();
+    const existing =
+      existingMetadata.success
+        ? existingMetadata.metadata
+        : null;
+
+    await window.electronAPI.setInterviewMetadata({
+      companyName: formState.companyName.trim(),
+      interviewerName: formState.interviewerName.trim(),
+      answerDepth: formState.answerDepth,
+      chatSessionId: createChatSessionId(),
+      chatSessionStartedAt: Date.now(),
+      chatContextClearedAt: Date.now(),
+      solutionLanguage:
+        existing?.solutionLanguage,
+      resumeSummary: formState.resumeSummary.trim(),
+    });
+  };
+
   const handleSignUp = async (): Promise<void> => {
     const { data: signUpData, error: signUpError } = await authProvider.signUp(
       formState.email,
@@ -233,6 +265,7 @@ export function AuthForm({ setUser }: AuthFormProps) {
         } catch (error) {
           console.error('Error saving last used email:', error);
         }
+        await startNewLoginChatSession();
         setUser(userResponse);
       }
 
@@ -274,6 +307,7 @@ export function AuthForm({ setUser }: AuthFormProps) {
         } catch (error) {
           console.error('Error saving last used email:', error);
         }
+        await startNewLoginChatSession();
         setUser(userResponse);
       }
     } else {
@@ -388,11 +422,11 @@ export function AuthForm({ setUser }: AuthFormProps) {
                   </div>
                   <label className="mb-2 block cursor-pointer rounded-md border border-dashed border-cyan-500/30 bg-black/20 px-3 py-2 text-center text-[11px] font-medium text-cyan-100/80 hover:border-cyan-400/50 hover:text-cyan-100">
                     {formState.isResumeUploading
-                      ? 'Extracting resume...'
-                      : 'Upload PDF / DOC / DOCX'}
+                      ? 'Reading resume...'
+                      : 'Upload TXT / MD'}
                     <input
                       type="file"
-                      accept=".pdf,.doc,.docx,.txt,.md,.markdown,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+                      accept=".txt,.md,.markdown,text/plain,text/markdown"
                       onChange={handleResumeFileChange}
                       disabled={formState.isResumeUploading}
                       className="hidden"
