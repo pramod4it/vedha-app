@@ -69,6 +69,8 @@ interface ElectronAPI {
     email?: string | null;
     error?: string;
   }>;
+  stopBackendService: () => Promise<{ success: boolean; error?: string }>;
+  quitApp: () => Promise<{ success: boolean; error?: string }>;
   setAppMode: (appMode: AppMode) => Promise<{ success: boolean; error?: string }>;
   setInterviewMetadata: (
     metadata: InterviewMetadata,
@@ -247,6 +249,8 @@ const electronAPI = {
   authIsAuthenticated: () => ipcRenderer.invoke('auth-is-authenticated'),
   authSetLastUsedEmail: (email: string) => ipcRenderer.invoke('auth-set-last-used-email', email),
   authGetLastUsedEmail: () => ipcRenderer.invoke('auth-get-last-used-email'),
+  stopBackendService: () => ipcRenderer.invoke('stop-backend-service'),
+  quitApp: () => ipcRenderer.invoke('quit-app'),
   setAppMode: (appMode: AppMode) => ipcRenderer.invoke(IPC_EVENTS.APP_MODE.CHANGE, appMode),
   setInterviewMetadata: (metadata: InterviewMetadata) =>
     ipcRenderer.invoke('set-interview-metadata', metadata),

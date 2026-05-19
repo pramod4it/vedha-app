@@ -99,6 +99,18 @@ export const authService = {
     await this.clearAuthToken();
     localStorage.clear();
     sessionStorage.clear();
-    window.location.reload();
+
+    try {
+      await window.electronAPI.stopBackendService();
+    } catch (error: unknown) {
+      console.error('Error stopping backend on sign out:', error);
+    }
+
+    try {
+      await window.electronAPI.quitApp();
+    } catch (error: unknown) {
+      console.error('Error quitting app on sign out:', error);
+      window.location.reload();
+    }
   },
 };

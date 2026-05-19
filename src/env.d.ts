@@ -65,6 +65,8 @@ interface ElectronAPI {
     isAuthenticated?: boolean;
     error?: string;
   }>;
+  stopBackendService: () => Promise<{ success: boolean; error?: string }>;
+  quitApp: () => Promise<{ success: boolean; error?: string }>;
 }
 
 interface Window {

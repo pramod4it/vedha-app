@@ -1,4 +1,5 @@
-import { ipcMain, shell } from 'electron';
+import { execFile } from 'child_process';
+import { app, ipcMain, shell } from 'electron';
 
 import {
   AppMode,
@@ -23,6 +24,31 @@ const SETTINGS_URL =
 
 const BILLING_URL =
     `${APP_WEBSITE}/billing`;
+
+const VEDHA_SERVICE_DIR =
+    process.env.VEDHA_SERVICE_DIR ||
+    'D:\\vedha-service';
+
+function stopBackendService(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(
+        'docker',
+        ['compose', 'stop', 'vedha-service'],
+        {
+          cwd: VEDHA_SERVICE_DIR,
+          windowsHide: true,
+        },
+        (error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        },
+    );
+  });
+}
 
 export function initializeIpcHandlers(
     deps: IIpcHandlerDeps,
@@ -65,6 +91,43 @@ export function initializeIpcHandlers(
         );
 
         deps.hideMainWindow();
+      },
+  );
+
+  ipcMain.handle(
+      'stop-backend-service',
+
+      async () => {
+        try {
+          await stopBackendService();
+
+          return {
+            success: true,
+          };
+        } catch (error) {
+          console.error(
+              'Error stopping backend service:',
+              error,
+          );
+
+          return {
+            success: false,
+            error:
+                'Failed to stop backend service',
+          };
+        }
+      },
+  );
+
+  ipcMain.handle(
+      'quit-app',
+
+      () => {
+        app.quit();
+
+        return {
+          success: true,
+        };
       },
   );
 

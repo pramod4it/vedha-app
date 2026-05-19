@@ -66,6 +66,8 @@ export interface ElectronAPI {
     email?: string | null;
     error?: string;
   }>;
+  stopBackendService: () => Promise<{ success: boolean; error?: string }>;
+  quitApp: () => Promise<{ success: boolean; error?: string }>;
   setAppMode: (appMode: AppMode) => Promise<{ success: boolean; error?: string }>;
   setInterviewMetadata: (
     metadata: InterviewMetadata,
