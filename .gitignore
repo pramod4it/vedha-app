@@ -8,5 +8,6 @@ dist
 scripts/manual-notarize.js
 .env.local
 .env
+.openai-key
 certificate.p12
 **/CLAUDE.local.md
