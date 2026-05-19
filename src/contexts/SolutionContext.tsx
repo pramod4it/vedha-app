@@ -2,7 +2,6 @@ import type {
   DebugResponse,
   SolveResponse,
 } from '@shared/api.ts';
-import { LATEST_ANSWER_LIMIT } from '@shared/constants.ts';
 import React, { createContext, type ReactNode, useContext, useReducer } from 'react';
 
 interface SolutionState {
@@ -46,16 +45,6 @@ function withStableConversationId(solution: SolveResponse): SolveResponse {
   };
 }
 
-function trimSolutionHistory(
-  history: SolutionHistoryItem[],
-): SolutionHistoryItem[] {
-  if (LATEST_ANSWER_LIMIT === 0) {
-    return history;
-  }
-
-  return history.slice(0, LATEST_ANSWER_LIMIT);
-}
-
 function solutionReducer(state: SolutionState, action: SolutionAction): SolutionState {
   switch (action.type) {
     case 'SET_SOLUTION': {
@@ -90,7 +79,7 @@ function solutionReducer(state: SolutionState, action: SolutionAction): Solution
       return {
         ...state,
         solution: nextSolution,
-        solutionHistory: trimSolutionHistory(nextHistory),
+        solutionHistory: nextHistory,
         answerSequence: nextAnswerSequence,
       };
     }

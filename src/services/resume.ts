@@ -1,10 +1,27 @@
 import { API_ENDPOINTS } from '@shared/api.ts';
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
 interface ResumeExtractResponse {
   fileName: string;
   text: string;
+}
+
+const SERVER_UNAVAILABLE_MESSAGE =
+  'Resume extraction server is unavailable. Please start the backend service or paste the resume text.';
+
+function isServerUnavailableError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  return (
+    !error.response ||
+    error.code === 'ERR_NETWORK' ||
+    error.code === 'ECONNREFUSED' ||
+    error.code === 'ENOTFOUND' ||
+    error.code === 'ECONNRESET'
+  );
 }
 
 export const resumeService = {
@@ -29,7 +46,11 @@ export const resumeService = {
           },
         );
     } catch (error) {
-      if (error instanceof AxiosError) {
+      if (axios.isAxiosError(error)) {
+        if (isServerUnavailableError(error)) {
+          throw new Error(SERVER_UNAVAILABLE_MESSAGE);
+        }
+
         const message =
           (error.response?.data as { message?: string } | undefined)?.message ||
           (error.response?.status === 404

@@ -10,6 +10,7 @@ interface CommandSectionProps {
   // Queue mode props
   onTooltipVisibilityChange?: (visible: boolean, height: number) => void;
   screenshotCount?: number;
+  onManualQuestionOpen?: () => void;
   // Solutions/Debug mode props
   isProcessing?: boolean;
   screenshots?: Screenshot[];
@@ -20,6 +21,7 @@ export const CommandSection: React.FC<CommandSectionProps> = ({
   mode,
   onTooltipVisibilityChange,
   screenshotCount = 0,
+  onManualQuestionOpen,
   isProcessing = false,
   screenshots = [],
   className = '',
@@ -36,6 +38,7 @@ export const CommandSection: React.FC<CommandSectionProps> = ({
         <QueueCommands
           onTooltipVisibilityChange={onTooltipVisibilityChange}
           screenshotCount={screenshotCount}
+          onManualQuestionOpen={onManualQuestionOpen}
         />
       </div>
     );

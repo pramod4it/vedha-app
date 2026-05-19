@@ -408,20 +408,10 @@ export class ProcessingHelper {
                 interviewMetadata?.companyName,
             interviewerName:
                 interviewMetadata?.interviewerName,
-            interviewRound:
-                interviewMetadata?.interviewRound,
             answerDepth:
                 interviewMetadata?.answerDepth,
-            targetRole:
-                interviewMetadata?.targetRole,
-            techStack:
-                interviewMetadata?.techStack,
             resumeSummary:
                 interviewMetadata?.resumeSummary,
-            jobDescription:
-                interviewMetadata?.jobDescription,
-            extraInstructions:
-                interviewMetadata?.extraInstructions,
             signal,
             headers,
           };

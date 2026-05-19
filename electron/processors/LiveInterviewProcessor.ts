@@ -20,13 +20,8 @@ export class LiveInterviewProcessor implements AppModeProcessor {
         headers,
         companyName,
         interviewerName,
-        interviewRound,
         answerDepth,
-        targetRole,
-        techStack,
         resumeSummary,
-        jobDescription,
-        extraInstructions,
       } = params;
       console.log(
           'CALLING AXIOS',
@@ -40,13 +35,8 @@ export class LiveInterviewProcessor implements AppModeProcessor {
           readableVarNames,
           companyName,
           interviewerName,
-          interviewRound,
           answerDepth,
-          targetRole,
-          techStack,
           resumeSummary,
-          jobDescription,
-          extraInstructions,
         },
         {
           signal,

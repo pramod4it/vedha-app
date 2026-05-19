@@ -20,7 +20,7 @@ interface SettingsProviderProps {
 
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
   const [solutionLanguage, setSolutionLanguage] = useState<ProgrammingLanguage>(
-    ProgrammingLanguage.Python,
+    ProgrammingLanguage.Java,
   );
   const [userLanguage, setUserLanguage] = useState<UserLanguage>(UserLanguage.EN_US);
   const [loading, setLoading] = useState(true);

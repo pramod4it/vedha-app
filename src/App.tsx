@@ -21,9 +21,7 @@ import { AuthForm } from './pages';
 
 import SubscribedApp from './pages/SubscribedApp';
 
-import { getAuthProvider } from './services/auth/index';
-
-import { authService } from './services/auth';
+import { authService, getAuthProvider } from './services/auth';
 
 import { getStorageProvider } from './services/storage';
 

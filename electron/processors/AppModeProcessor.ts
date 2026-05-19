@@ -18,13 +18,8 @@ export interface ProcessingParams {
   conversationId?: string;
   companyName?: string;
   interviewerName?: string;
-  interviewRound?: string;
   answerDepth?: string;
-  targetRole?: string;
-  techStack?: string;
   resumeSummary?: string;
-  jobDescription?: string;
-  extraInstructions?: string;
 }
 
 export interface AppModeProcessor {

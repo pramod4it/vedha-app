@@ -2,6 +2,7 @@ import { ipcMain, shell } from 'electron';
 
 import {
   AppMode,
+  ProgrammingLanguage,
   type SubscriptionLevel,
 } from '../shared/api';
 
@@ -735,13 +736,12 @@ export function initializeIpcHandlers(
           metadata: {
             companyName: string;
             interviewerName: string;
-            interviewRound: string;
             answerDepth?: 'short' | 'medium' | 'systemdesign';
-            targetRole?: string;
-            techStack?: string;
+            chatSessionId?: string;
+            chatSessionStartedAt?: number;
+            chatContextClearedAt?: number;
+            solutionLanguage?: ProgrammingLanguage;
             resumeSummary?: string;
-            jobDescription?: string;
-            extraInstructions?: string;
           },
       ) => {
 

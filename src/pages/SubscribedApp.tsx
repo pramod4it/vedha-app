@@ -2,32 +2,114 @@ import { type AuthenticatedUser, type SolveResponse, SubscriptionLevel } from '@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScreenshotProvider } from '../contexts/ScreenshotContext';
-import { SettingsProvider } from '../contexts/SettingsContext';
+import { SettingsProvider, useSettings } from '../contexts/SettingsContext';
 import { SolutionProvider, useSolutionContext } from '../contexts/SolutionContext';
 import { SubscriptionProvider } from '../contexts/SubscriptionContext';
 import { useToast } from '../contexts/toast';
 import { useRealtimeAssistant } from '../hooks/useRealtimeAssistant';
 import { AppModeLayoutProvider } from '../layouts';
 import { QueuePage, SolutionsPage } from '.';
+import { ASSISTANT_STATUS } from '../realtime/constants';
 
 interface SubscribedAppProps {
   user: AuthenticatedUser;
 }
 
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(/\r?\n/)
+      .map((item) => item.replace(/^[-*]\s*/, '').trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function toText(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(toText)
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  if (value && typeof value === 'object') {
+    const record =
+      value as Record<string, unknown>;
+    const nestedText =
+      toText(
+        record.text ??
+          record.content ??
+          record.value ??
+          record.answer ??
+          record.description,
+      );
+
+    if (nestedText) {
+      return nestedText;
+    }
+  }
+
+  return '';
+}
+
+function parseRealtimeResponse(response: string): Partial<SolveResponse> {
+  try {
+    return JSON.parse(response) as Partial<SolveResponse>;
+  } catch {
+    const start =
+      response.indexOf('{');
+    const end =
+      response.lastIndexOf('}');
+
+    if (start >= 0 && end > start) {
+      return JSON.parse(response.slice(start, end + 1)) as Partial<SolveResponse>;
+    }
+
+    throw new Error('Realtime response is not JSON');
+  }
+}
+
 const SubscribedAppContent: React.FC = () => {
   const { clearAll, setSolution } = useSolutionContext();
-  const [view, setView] = useState<'queue' | 'solutions' | 'debug'>('queue');
+  const { solutionLanguage } = useSettings();
+  const [view, setView] = useState<'queue' | 'solutions' | 'debug'>('solutions');
   const containerRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
   const {
     start,
     response,
+    responseId,
     error,
-    audioEnabled,
-    setAudioEnabled,
+    status,
     submitManualQuestion,
-  } = useRealtimeAssistant();
-  const lastRealtimeResponseRef = useRef('');
+    resetChatSession,
+  } = useRealtimeAssistant({
+    solutionLanguage,
+  });
+  const lastRealtimeResponseRef = useRef({
+    id: 0,
+    response: '',
+  });
 
   useEffect(() => {
     start().catch(console.error);
@@ -35,50 +117,83 @@ const SubscribedAppContent: React.FC = () => {
 
   useEffect(() => {
     if (error) {
-      showToast('Audio Detection', error, 'error');
+      showToast('Backend Connection', error, 'error');
     }
   }, [error, showToast]);
 
   useEffect(() => {
-    if (!response || response === lastRealtimeResponseRef.current) {
+    if (!response) {
       return;
     }
 
-    lastRealtimeResponseRef.current = response;
+    if (
+      responseId === lastRealtimeResponseRef.current.id &&
+      response === lastRealtimeResponseRef.current.response
+    ) {
+      return;
+    }
+
+    lastRealtimeResponseRef.current = {
+      id: responseId,
+      response,
+    };
 
     try {
-      const parsed = JSON.parse(response) as Partial<SolveResponse>;
+      const parsed = parseRealtimeResponse(response);
+      const thoughts =
+        toStringArray(parsed.thoughts);
+      const followUpQuestions =
+        toStringArray(parsed.followUpQuestions);
+      const code =
+        toText(parsed.code);
+      const answerText =
+        toText(parsed.answerText);
+      const diagramMermaid =
+        toText(parsed.diagramMermaid);
+      const problemStatement =
+        toText(parsed.problemStatement);
+      const sayThis =
+        toText(parsed.sayThis);
+      const example =
+        toText(parsed.example);
       const hasContent = Boolean(
-        parsed.code ||
-          parsed.answerText ||
-          parsed.diagramMermaid ||
-          parsed.problemStatement ||
-          (parsed.thoughts && parsed.thoughts.length > 0),
+        code ||
+          answerText ||
+          diagramMermaid ||
+          problemStatement ||
+          thoughts.length > 0,
       );
 
-      if (parsed.messageType === 'CLARIFICATION_REQUEST') {
-        return;
-      }
-
-      if (hasContent) {
-        setSolution({
-          thoughts: parsed.thoughts || [],
-          code: parsed.code || '',
-          answerText: parsed.answerText || '',
-          diagramMermaid: parsed.diagramMermaid || '',
-          messageType: parsed.messageType || 'NEW_QUESTION',
-          parentQuestionId: parsed.parentQuestionId,
-          answerDepth: parsed.answerDepth,
-          timeComplexity: parsed.timeComplexity || 'Unknown',
-          spaceComplexity: parsed.spaceComplexity || 'Unknown',
-          problemStatement: parsed.problemStatement || '',
-          conversationId: parsed.conversationId || crypto.randomUUID(),
-          followUpQuestions: parsed.followUpQuestions || [],
-          sayThis: parsed.sayThis || '',
-          example: parsed.example || '',
-        });
-        setView('solutions');
-      }
+      setSolution({
+        thoughts:
+          thoughts.length > 0
+            ? thoughts
+            : hasContent
+              ? []
+              : ['The backend returned an answer in an unexpected shape. Showing the raw answer.'],
+        code:
+          hasContent
+            ? code
+            : response,
+        answerText,
+        diagramMermaid,
+        messageType: toText(parsed.messageType) || 'NEW_QUESTION',
+        parentQuestionId:
+          typeof parsed.parentQuestionId === 'number'
+            ? parsed.parentQuestionId
+            : undefined,
+        answerDepth: parsed.answerDepth,
+        timeComplexity: toText(parsed.timeComplexity) || 'Unknown',
+        spaceComplexity: toText(parsed.spaceComplexity) || 'Unknown',
+        problemStatement:
+          problemStatement ||
+          'Manual question',
+        conversationId: toText(parsed.conversationId),
+        followUpQuestions,
+        sayThis,
+        example,
+      });
+      setView('solutions');
     } catch {
       setSolution({
         thoughts: ['The interviewer asked a question. Here is a concise answer from the backend.'],
@@ -86,11 +201,11 @@ const SubscribedAppContent: React.FC = () => {
         timeComplexity: 'N/A',
         spaceComplexity: 'N/A',
         problemStatement: response,
-        conversationId: crypto.randomUUID(),
+        conversationId: '',
       });
       setView('solutions');
     }
-  }, [response, setSolution]);
+  }, [response, responseId, setSolution]);
 
   // Dynamically update the window size
   useEffect(() => {
@@ -102,8 +217,16 @@ const SubscribedAppContent: React.FC = () => {
       if (!containerRef.current) {
         return;
       }
-      const height = containerRef.current.scrollHeight;
-      const width = containerRef.current.scrollWidth;
+      const minWidth =
+        view === 'solutions'
+          ? 1800
+          : 360;
+      const minHeight =
+        view === 'solutions'
+          ? 900
+          : 240;
+      const height = Math.max(containerRef.current.scrollHeight, minHeight);
+      const width = Math.max(containerRef.current.scrollWidth, minWidth);
       window.electronAPI
         ?.updateContentDimensions({ width, height, source: 'SubscribedApp' })
         .catch(console.error);
@@ -165,9 +288,11 @@ const SubscribedAppContent: React.FC = () => {
         ) : view === 'solutions' ? (
           <SolutionsPage
             setView={setView}
-            audioEnabled={audioEnabled}
-            onAudioEnabledChange={setAudioEnabled}
             onManualQuestionSubmit={submitManualQuestion}
+            onClearChat={() => {
+              resetChatSession().catch(console.error);
+            }}
+            isManualQuestionProcessing={status === ASSISTANT_STATUS.RESPONDING}
           />
         ) : null}
       </div>

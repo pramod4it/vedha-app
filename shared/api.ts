@@ -3,6 +3,7 @@ export enum ProgrammingLanguage {
   JavaScript = 'javascript',
   TypeScript = 'typescript',
   Java = 'java',
+  C = 'c',
   Go = 'golang',
   Cpp = 'cpp',
   Swift = 'swift',
@@ -102,31 +103,20 @@ export interface SolveRequest {
 
   interviewerName?: string;
 
-  interviewRound?: string;
-
   answerDepth?: AnswerDepth;
 
-  targetRole?: string;
-
-  techStack?: string;
-
   resumeSummary?: string;
-
-  jobDescription?: string;
-
-  extraInstructions?: string;
 }
 
 export interface InterviewMetadata {
   companyName: string;
   interviewerName: string;
-  interviewRound: string;
   answerDepth: AnswerDepth;
-  targetRole?: string;
-  techStack?: string;
+  chatSessionId?: string;
+  chatSessionStartedAt?: number;
+  chatContextClearedAt?: number;
+  solutionLanguage?: ProgrammingLanguage;
   resumeSummary?: string;
-  jobDescription?: string;
-  extraInstructions?: string;
 }
 
 export interface SolveResponse {
@@ -184,19 +174,15 @@ export interface InterviewQuestionRequest {
 
   textQuestion?: string;
 
-  audioQuestion?: string;
-
-  audioData?: number[];
-
   screenshotCount?: number;
 
   companyName?: string;
 
   interviewerName?: string;
 
-  interviewRound?: string;
-
   answerDepth?: AnswerDepth;
+
+  solutionLanguage?: ProgrammingLanguage;
 
   answer?: string;
 
@@ -214,6 +200,8 @@ export interface InterviewQuestionRequest {
 
   sessionKey?: string;
 
+  chatSessionId?: string;
+
   conversationId?: string;
 }
 
@@ -224,19 +212,15 @@ export interface InterviewQuestionResponse {
 
   textQuestion?: string | null;
 
-  audioQuestion?: string | null;
-
-  audioSizeBytes?: number | null;
-
   screenshotCount?: number | null;
 
   companyName?: string | null;
 
   interviewerName?: string | null;
 
-  interviewRound?: string | null;
-
   answerDepth?: AnswerDepth | null;
+
+  solutionLanguage?: ProgrammingLanguage | null;
 
   answer?: string | null;
 
@@ -253,6 +237,8 @@ export interface InterviewQuestionResponse {
   source?: string | null;
 
   sessionKey?: string | null;
+
+  chatSessionId?: string | null;
 
   conversationId?: string | null;
 

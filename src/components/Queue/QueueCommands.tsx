@@ -11,11 +11,13 @@ import { AppModeIndicator } from './AppModeIndicator';
 interface QueueCommandsProps {
   onTooltipVisibilityChange: (visible: boolean, height: number) => void;
   screenshotCount?: number;
+  onManualQuestionOpen?: () => void;
 }
 
 const QueueCommands: React.FC<QueueCommandsProps> = ({
   onTooltipVisibilityChange,
   screenshotCount = 0,
+  onManualQuestionOpen,
 }) => {
   const { currentAppMode, setAppMode } = useAppMode();
   const { isFree, user } = useSubscription();
@@ -47,6 +49,23 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
           {screenshotCount > 0 && <CommandButton label="Start Over" shortcut="G" />}
 
+          <button
+            type="button"
+            onClick={onManualQuestionOpen}
+            className="flex items-center gap-2 rounded-sm px-2 py-1.5 transition-colors hover:bg-white/10"
+            title="Back to manual question screen"
+          >
+            <span className="leading-none truncate">Manual</span>
+            <div className="flex gap-1">
+              <kbd className="rounded-md bg-white/10 px-1.5 py-1 leading-none text-white/100">
+                {COMMAND_KEY}
+              </kbd>
+              <kbd className="rounded-md bg-white/10 px-1.5 py-1 leading-none text-white/100">
+                M
+              </kbd>
+            </div>
+          </button>
+
           <CommandSeparator />
           <SettingsTooltip
             isFree={isFree}
@@ -74,6 +93,11 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                 label: 'Start Over',
                 shortcut: [COMMAND_KEY, 'G'],
                 description: 'Start fresh with a new question.',
+              },
+              {
+                label: 'Manual Question',
+                shortcut: [COMMAND_KEY, 'M'],
+                description: 'Return to the manual question screen.',
               },
             ]}
             currentAppMode={currentAppMode}

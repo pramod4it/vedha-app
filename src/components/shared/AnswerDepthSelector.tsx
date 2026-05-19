@@ -10,8 +10,16 @@ const ANSWER_DEPTH_LABELS: Record<AnswerDepth, string> = {
 
 const ANSWER_DEPTHS = Object.keys(ANSWER_DEPTH_LABELS) as AnswerDepth[];
 
-export const AnswerDepthSelector: React.FC = () => {
-  const [answerDepth, setAnswerDepth] = useState<AnswerDepth>('medium');
+interface AnswerDepthSelectorProps {
+  compact?: boolean;
+  depths?: AnswerDepth[];
+}
+
+export const AnswerDepthSelector: React.FC<AnswerDepthSelectorProps> = ({
+  compact = false,
+  depths = ANSWER_DEPTHS,
+}) => {
+  const [answerDepth, setAnswerDepth] = useState<AnswerDepth>('short');
   const [metadata, setMetadata] = useState<InterviewMetadata | null>(null);
 
   useEffect(() => {
@@ -21,7 +29,7 @@ export const AnswerDepthSelector: React.FC = () => {
         const loadedMetadata = result.success ? result.metadata || null : null;
 
         setMetadata(loadedMetadata);
-        setAnswerDepth(loadedMetadata?.answerDepth || 'medium');
+        setAnswerDepth(loadedMetadata?.answerDepth || 'short');
       })
       .catch(console.error);
   }, []);
@@ -33,7 +41,6 @@ export const AnswerDepthSelector: React.FC = () => {
       ...metadata,
       companyName: metadata?.companyName || '',
       interviewerName: metadata?.interviewerName || '',
-      interviewRound: metadata?.interviewRound || '',
       answerDepth: nextDepth,
     };
 
@@ -52,23 +59,31 @@ export const AnswerDepthSelector: React.FC = () => {
   };
 
   return (
-    <div className="mb-3 px-2 space-y-1">
-      <div className="text-[13px] font-medium text-white/90">Answer depth</div>
+    <div className={compact ? 'flex items-center gap-2' : 'mb-3 px-2 space-y-1'}>
+      <div className={compact ? 'text-[11px] font-medium uppercase tracking-wide text-zinc-400' : 'text-[13px] font-medium text-white/90'}>
+        Answer depth
+      </div>
       <div
-        className="grid grid-cols-2 gap-1 rounded-sm border border-white/10 bg-white/5 p-1"
+        className={
+          compact
+            ? 'inline-flex gap-1 rounded-lg border border-zinc-800 bg-zinc-950/70 p-1'
+            : 'grid grid-cols-2 gap-1 rounded-sm border border-white/10 bg-white/5 p-1'
+        }
         role="group"
         aria-label="Answer depth"
       >
-        {ANSWER_DEPTHS.map((depth) => (
+        {depths.map((depth) => (
           <button
             key={depth}
             type="button"
             aria-pressed={answerDepth === depth}
             onClick={() => handleChange(depth)}
-            className={`rounded-sm px-2 py-1 text-[11px] font-medium transition-colors ${
+            className={`${compact ? 'rounded-md px-2.5 py-1.5 text-[11px]' : 'rounded-sm px-2 py-1 text-[11px]'} font-medium transition-colors ${
               answerDepth === depth
-                ? 'bg-cyan-600/80 text-white'
-                : 'text-gray-300 hover:bg-white/10'
+                ? 'bg-cyan-500 text-zinc-950'
+                : compact
+                  ? 'text-zinc-300 hover:bg-zinc-800'
+                  : 'text-gray-300 hover:bg-white/10'
             }`}
           >
             {ANSWER_DEPTH_LABELS[depth]}

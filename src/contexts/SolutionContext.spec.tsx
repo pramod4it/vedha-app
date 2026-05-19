@@ -1,10 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
-jest.mock('@shared/constants.ts', () => ({
-    LATEST_ANSWER_LIMIT: 5,
-}));
-
 import type {
     DebugResponse,
     SolveResponse,
@@ -82,7 +78,7 @@ describe('SolutionContext', () => {
         );
 
         test(
-            'should keep only the latest five solutions with newest first',
+            'should keep all current chat solutions with newest first',
             () => {
 
                 const { result } =
@@ -132,6 +128,7 @@ describe('SolutionContext', () => {
                     ['Q-fourth', 'A-fourth', 4],
                     ['Q-third', 'A-third', 3],
                     ['Q-second', 'A-second', 2],
+                    ['Q-first', 'A-first', 1],
                 ]);
 
             },
@@ -189,6 +186,7 @@ describe('SolutionContext', () => {
                     ['Q4', 'A4', 4],
                     ['Q3', 'A3', 3],
                     ['Q2', 'A2', 2],
+                    ['Q1', 'A1', 1],
                 ]);
 
                 expect(
@@ -250,6 +248,9 @@ describe('SolutionContext', () => {
                 expect(
                     result.current.state.solution,
                 ).toBeNull();
+                expect(
+                    result.current.state.solutionHistory,
+                ).toEqual([]);
 
             },
         );

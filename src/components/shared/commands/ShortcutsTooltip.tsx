@@ -1,8 +1,6 @@
 import type { AppMode } from '@shared/api.ts';
 import type React from 'react';
-import { AnswerDepthSelector } from '../AnswerDepthSelector';
 import { AppModeSelector } from '../AppModeSelector';
-import { InterviewerAudioTest } from '../InterviewerAudioTest';
 import { LanguageSelector } from '../LanguageSelector';
 import { LocaleSelector } from '../LocaleSelector.tsx';
 
@@ -95,10 +93,6 @@ const ShortcutsTooltip: React.FC<ShortcutsTooltipProps> = ({
             )}
 
             <AppModeSelector currentAppMode={currentAppMode} setAppMode={setAppMode} />
-
-            <AnswerDepthSelector />
-
-            <InterviewerAudioTest />
 
             <LanguageSelector />
 

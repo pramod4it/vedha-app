@@ -66,6 +66,26 @@ const SolutionSectionInner: React.FC<SolutionSectionProps> = ({
     return null;
   }
 
+  if (title === 'Answer') {
+    return (
+      <div className={`space-y-4 ${className}`}>
+        {answerTextData && (
+          <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-100">
+            {answerTextData}
+          </p>
+        )}
+
+        {diagramData && (
+          <MermaidDiagram chart={diagramData} />
+        )}
+
+        {solutionData && (
+          <CodeBlock code={solutionData} language={currentLanguage} showCopyButton={false} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={`space-y-4 ${className}`}>
       {thoughtsData && (

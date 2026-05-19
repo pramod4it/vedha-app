@@ -3,24 +3,21 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
 
-const LANGUAGE_LABELS: Record<ProgrammingLanguage, string> = {
-  [ProgrammingLanguage.Python]: 'Python',
-  [ProgrammingLanguage.JavaScript]: 'JavaScript',
-  [ProgrammingLanguage.TypeScript]: 'TypeScript',
+const LANGUAGE_LABELS: Partial<Record<ProgrammingLanguage, string>> = {
   [ProgrammingLanguage.Java]: 'Java',
-  [ProgrammingLanguage.Go]: 'Go',
+  [ProgrammingLanguage.C]: 'C',
   [ProgrammingLanguage.Cpp]: 'C++',
-  [ProgrammingLanguage.Swift]: 'Swift',
-  [ProgrammingLanguage.Kotlin]: 'Kotlin',
-  [ProgrammingLanguage.Ruby]: 'Ruby',
-  [ProgrammingLanguage.SQL]: 'SQL',
-  [ProgrammingLanguage.R]: 'R',
-  [ProgrammingLanguage.PHP]: 'PHP',
 };
 
-type LanguageSelectorProps = {};
+interface LanguageSelectorProps {
+  compact?: boolean;
+  showReadableVarNames?: boolean;
+}
 
-export const LanguageSelector: React.FC<LanguageSelectorProps> = () => {
+export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
+  compact = false,
+  showReadableVarNames = true,
+}) => {
   const { solutionLanguage, updateSolutionLanguage, loading, error } = useSettings();
   const [readableVarNames, setReadableVarNames] = useState(false);
 
@@ -53,21 +50,27 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = () => {
 
   if (error) {
     return (
-      <div className="mb-3 px-2 space-y-1">
+      <div className={compact ? 'flex items-center gap-2' : 'mb-3 px-2 space-y-1'}>
         <div className="text-[11px] text-red-400">Error loading language settings</div>
       </div>
     );
   }
 
   return (
-    <div className="mb-3 px-2 space-y-1">
-      <div className="flex items-center justify-between text-[13px] font-medium text-white/90">
-        <span>Code in{loading ? ' (loading...)' : ''}</span>
+    <div className={compact ? 'flex items-center gap-2' : 'mb-3 px-2 space-y-1'}>
+      <div className={compact ? 'flex items-center gap-2 text-[11px] font-medium text-zinc-400' : 'flex items-center justify-between text-[13px] font-medium text-white/90'}>
+        <span className={compact ? 'uppercase tracking-wide' : undefined}>
+          Code in{loading ? ' (loading...)' : ''}
+        </span>
         <select
           value={solutionLanguage}
           onChange={handleLanguageChange}
           disabled={loading}
-          className="bg-white/10 rounded-sm px-2 py-1 text-sm outline-hidden border border-white/10 focus:border-white/20 disabled:opacity-50"
+          className={
+            compact
+              ? 'h-8 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 text-[11px] font-medium text-zinc-100 outline-hidden transition focus:border-cyan-500/70 disabled:opacity-50'
+              : 'bg-white/10 rounded-sm px-2 py-1 text-sm outline-hidden border border-white/10 focus:border-white/20 disabled:opacity-50'
+          }
         >
           {Object.entries(LANGUAGE_LABELS).map(([value, label]) => (
             <option key={value} value={value} className="text-black">
@@ -76,19 +79,23 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = () => {
           ))}
         </select>
       </div>
-      <label className="flex items-center justify-between text-[13px] font-medium text-white/90 cursor-pointer">
-        <span>Readable var names</span>
-        <input
-          type="checkbox"
-          checked={readableVarNames}
-          onChange={(e) => handleReadableVarNamesChange(e.target.checked)}
-          className="accent-blue-500"
-        />
-      </label>
-      <p className="text-[10px] leading-relaxed text-gray-400">
-        e.g. leftIndex instead of l, currentSum instead of s. Simple loop iterators like i stay
-        short.
-      </p>
+      {showReadableVarNames ? (
+        <>
+          <label className="flex items-center justify-between text-[13px] font-medium text-white/90 cursor-pointer">
+            <span>Readable var names</span>
+            <input
+              type="checkbox"
+              checked={readableVarNames}
+              onChange={(e) => handleReadableVarNamesChange(e.target.checked)}
+              className="accent-blue-500"
+            />
+          </label>
+          <p className="text-[10px] leading-relaxed text-gray-400">
+            e.g. leftIndex instead of l, currentSum instead of s. Simple loop iterators like i stay
+            short.
+          </p>
+        </>
+      ) : null}
     </div>
   );
 };

@@ -1,5 +1,13 @@
 require('@testing-library/jest-dom');
 
+jest.mock('react-syntax-highlighter', () => ({
+  Prism: ({ children }) => children,
+}));
+
+jest.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({
+  oneDark: {},
+}));
+
 window.electronAPI = {
   invoke: jest.fn(),
   on: jest.fn(),

@@ -554,9 +554,20 @@ function setWindowDimensions(width: number, height: number, source: string): voi
       );
     }
 
-    const effectiveContentWidth = Math.max(baseWidth - 32, width, state.codeDesiredWidth);
+    const solutionSizingSource =
+      source === 'SolutionsPage' ||
+      source === 'useSolutions' ||
+      source === 'SubscribedApp';
+    const guardedWidth = solutionSizingSource
+      ? Math.max(width, 760)
+      : width;
+    const guardedHeight = solutionSizingSource
+      ? Math.max(height, 520)
+      : height;
+
+    const effectiveContentWidth = Math.max(baseWidth - 32, guardedWidth, state.codeDesiredWidth);
     const newWidth = Math.min(effectiveContentWidth + 32, maxWidth);
-    const newHeight = Math.min(Math.ceil(height), maxHeight);
+    const newHeight = Math.min(Math.ceil(guardedHeight), maxHeight);
 
     console.log(
       '[setWindowDimensions] effectiveContentWidth:',

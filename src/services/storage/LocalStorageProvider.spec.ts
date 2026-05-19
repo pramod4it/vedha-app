@@ -11,23 +11,23 @@ describe('LocalStorageProvider', () => {
   });
 
   describe('getSettings', () => {
-    test('WHEN no settings stored THEN it returns Python/EN_US/LIVE_INTERVIEW defaults', async () => {
+    test('WHEN no settings stored THEN it returns Java/EN_US/LIVE_INTERVIEW defaults', async () => {
       // Act
       const settings = await provider.getSettings();
 
       // Assert
       expect(settings).toEqual({
-        solutionLanguage: ProgrammingLanguage.Python,
+        solutionLanguage: ProgrammingLanguage.Java,
         userLanguage: UserLanguage.EN_US,
         appMode: AppMode.LIVE_INTERVIEW,
       });
     });
 
-    test('WHEN settings are stored THEN it returns parsed values', async () => {
+    test('WHEN supported settings are stored THEN it returns parsed values', async () => {
       localStorage.setItem(
         LOCAL_STORAGE_KEYS.VEDHA_SETTINGS,
         JSON.stringify({
-          solutionLanguage: ProgrammingLanguage.JavaScript,
+          solutionLanguage: ProgrammingLanguage.Cpp,
           userLanguage: UserLanguage.ES_ES,
           appMode: AppMode.LIVE_INTERVIEW,
         }),
@@ -38,7 +38,7 @@ describe('LocalStorageProvider', () => {
 
       // Assert
       expect(settings).toEqual({
-        solutionLanguage: ProgrammingLanguage.JavaScript,
+        solutionLanguage: ProgrammingLanguage.Cpp,
         userLanguage: UserLanguage.ES_ES,
         appMode: AppMode.LIVE_INTERVIEW,
       });
@@ -52,7 +52,7 @@ describe('LocalStorageProvider', () => {
 
       // Assert
       expect(settings).toEqual({
-        solutionLanguage: ProgrammingLanguage.Python,
+        solutionLanguage: ProgrammingLanguage.Java,
         userLanguage: UserLanguage.EN_US,
         appMode: AppMode.LIVE_INTERVIEW,
       });
@@ -64,19 +64,19 @@ describe('LocalStorageProvider', () => {
       localStorage.setItem(
         LOCAL_STORAGE_KEYS.VEDHA_SETTINGS,
         JSON.stringify({
-          solutionLanguage: ProgrammingLanguage.Python,
+          solutionLanguage: ProgrammingLanguage.Java,
           userLanguage: UserLanguage.EN_US,
           appMode: AppMode.LIVE_INTERVIEW,
         }),
       );
 
       // Act
-      await provider.updateSettings({ solutionLanguage: ProgrammingLanguage.Go });
+      await provider.updateSettings({ solutionLanguage: ProgrammingLanguage.Cpp });
 
       // Assert
       const persisted = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.VEDHA_SETTINGS) ?? '{}');
       expect(persisted).toEqual({
-        solutionLanguage: ProgrammingLanguage.Go,
+        solutionLanguage: ProgrammingLanguage.Cpp,
         userLanguage: UserLanguage.EN_US,
         appMode: AppMode.LIVE_INTERVIEW,
       });
@@ -86,11 +86,11 @@ describe('LocalStorageProvider', () => {
   describe('setSolutionLanguage', () => {
     test('WHEN setSolutionLanguage is called THEN getSolutionLanguage returns it', async () => {
       // Act
-      await provider.setSolutionLanguage(ProgrammingLanguage.TypeScript);
+      await provider.setSolutionLanguage(ProgrammingLanguage.C);
       const language = await provider.getSolutionLanguage();
 
       // Assert
-      expect(language).toBe(ProgrammingLanguage.TypeScript);
+      expect(language).toBe(ProgrammingLanguage.C);
     });
   });
 
@@ -113,6 +113,21 @@ describe('LocalStorageProvider', () => {
 
       // Assert
       expect(mode).toBe(AppMode.LIVE_INTERVIEW);
+    });
+
+    test('WHEN old unsupported language is stored THEN it falls back to Java', async () => {
+      localStorage.setItem(
+        LOCAL_STORAGE_KEYS.VEDHA_SETTINGS,
+        JSON.stringify({
+          solutionLanguage: ProgrammingLanguage.JavaScript,
+          userLanguage: UserLanguage.ES_ES,
+          appMode: AppMode.LIVE_INTERVIEW,
+        }),
+      );
+
+      const settings = await provider.getSettings();
+
+      expect(settings.solutionLanguage).toBe(ProgrammingLanguage.Java);
     });
   });
 });

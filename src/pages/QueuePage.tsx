@@ -1,4 +1,4 @@
-import type React from 'react';
+import React from 'react';
 
 import {
   CommandSection,
@@ -22,7 +22,7 @@ interface QueuePageProps {
 
 const QueuePage:
     React.FC<QueuePageProps> = ({
-                                  setView: _setView,
+                                  setView,
                                 }) => {
 
   const {
@@ -31,6 +31,37 @@ const QueuePage:
     handleTooltipVisibilityChange,
     contentRef,
   } = useQueue();
+
+  const openManualQuestionScreen = () => {
+      setView('solutions');
+  };
+
+  React.useEffect(() => {
+      const handleKeyDown = (event: KeyboardEvent) => {
+          if (
+              (event.ctrlKey || event.metaKey) &&
+              (
+                  event.key.toLowerCase() === 'm' ||
+                  event.code === 'KeyM'
+              )
+          ) {
+              event.preventDefault();
+              openManualQuestionScreen();
+          }
+      };
+
+      window.addEventListener(
+          'keydown',
+          handleKeyDown,
+      );
+
+      return () => {
+          window.removeEventListener(
+              'keydown',
+              handleKeyDown,
+          );
+      };
+  }, []);
 
   const screenshotSection =
       screenshots.length > 0
@@ -48,6 +79,9 @@ const QueuePage:
   const commandSection = (
       <CommandSection
           mode="queue"
+          onManualQuestionOpen={
+            openManualQuestionScreen
+          }
           onTooltipVisibilityChange={
             handleTooltipVisibilityChange
           }

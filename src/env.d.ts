@@ -5,8 +5,7 @@ import { ProgrammingLanguage, UserLanguage } from '../shared/api';
 interface ImportMetaEnv {
   readonly NODE_ENV: string;
   readonly VITE_API_BASE_URL: string;
-  readonly VITE_BACKEND_AUDIO_WS_URL?: string;
-  readonly VITE_LATEST_ANSWER_LIMIT?: string;
+  readonly VITE_BACKEND_MANUAL_WS_URL?: string;
 }
 
 interface ImportMeta {

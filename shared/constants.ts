@@ -1,21 +1,22 @@
+type RuntimeEnv =
+  Record<string, string | undefined>;
+
+const getRuntimeEnv =
+  (): RuntimeEnv => {
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env;
+    }
+
+    return {};
+  };
+
 /**
- * Check if running in self-hosted mode
- * In React: Uses import.meta.env.VITE_SELF_HOSTED_MODE
- * In Electron: Uses process.env.VITE_SELF_HOSTED_MODE
+ * Check if running in self-hosted mode.
+ * Vite mirrors VITE_* values into process.env for this app build, and using
+ * process.env keeps Jest from parsing import.meta in CommonJS tests.
  */
 export const isSelfHosted = (): boolean => {
-  // For React app
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env.VITE_SELF_HOSTED_MODE === 'true';
-  }
-
-  // For Electron app
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.VITE_SELF_HOSTED_MODE === 'true';
-  }
-
-  // Default to false (API mode)
-  return false;
+  return getRuntimeEnv().VITE_SELF_HOSTED_MODE === 'true';
 };
 
 /**
@@ -25,42 +26,10 @@ export const isSelfHosted = (): boolean => {
  * Falls back to development URL if not set
  */
 export const getApiBaseUrl = (): string => {
-  // For React app
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:9090';
-  }
-
-  // For Electron app
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.VITE_API_BASE_URL || 'http://localhost:9090';
-  }
-
-  // Fallback (should not happen)
-  return 'http://localhost:9090';
+  return getRuntimeEnv().VITE_API_BASE_URL || 'http://localhost:9090';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
-
-export const getLatestAnswerLimit = (): number => {
-  const rawValue =
-    typeof import.meta !== 'undefined' && import.meta.env
-      ? import.meta.env.VITE_LATEST_ANSWER_LIMIT
-      : typeof process !== 'undefined' && process.env
-        ? process.env.VITE_LATEST_ANSWER_LIMIT
-        : undefined;
-
-  const parsedValue =
-    Number(rawValue);
-
-  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
-    return 5;
-  }
-
-  return parsedValue;
-};
-
-export const LATEST_ANSWER_LIMIT =
-  getLatestAnswerLimit();
 
 export const IPC_EVENTS = {
   TOOLTIP: {

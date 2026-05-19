@@ -66,8 +66,8 @@ export function useSolutions() {
 
   const updateDimensions = () => {
     if (contentRef.current) {
-      const contentHeight = contentRef.current.scrollHeight;
-      const contentWidth = Math.max(contentRef.current.scrollWidth, 720);
+      const contentHeight = Math.max(contentRef.current.scrollHeight, 900);
+      const contentWidth = Math.max(contentRef.current.scrollWidth, 1800);
       window.electronAPI
         .updateContentDimensions({
           width: contentWidth,

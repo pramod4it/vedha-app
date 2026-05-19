@@ -15,13 +15,8 @@ interface FormState {
   password: string;
   companyName: string;
   interviewerName: string;
-  interviewRound: string;
   answerDepth: 'short' | 'medium' | 'systemdesign';
-  targetRole: string;
-  techStack: string;
   resumeSummary: string;
-  jobDescription: string;
-  extraInstructions: string;
   error: string;
   passwordError: string;
   isLoading: boolean;
@@ -36,13 +31,8 @@ const initialState: FormState = {
   password: '',
   companyName: '',
   interviewerName: '',
-  interviewRound: '',
-  answerDepth: 'medium',
-  targetRole: '',
-  techStack: '',
+  answerDepth: 'short',
   resumeSummary: '',
-  jobDescription: '',
-  extraInstructions: '',
   error: '',
   passwordError: '',
   isLoading: false,
@@ -83,13 +73,8 @@ export function AuthForm({ setUser }: AuthFormProps) {
             ...prev,
             companyName: metadataResult.metadata?.companyName || '',
             interviewerName: metadataResult.metadata?.interviewerName || '',
-            interviewRound: metadataResult.metadata?.interviewRound || '',
-            answerDepth: metadataResult.metadata?.answerDepth || 'medium',
-            targetRole: metadataResult.metadata?.targetRole || '',
-            techStack: metadataResult.metadata?.techStack || '',
+            answerDepth: metadataResult.metadata?.answerDepth || 'short',
             resumeSummary: metadataResult.metadata?.resumeSummary || '',
-            jobDescription: metadataResult.metadata?.jobDescription || '',
-            extraInstructions: metadataResult.metadata?.extraInstructions || '',
           }));
         }
       } catch (error) {
@@ -135,12 +120,7 @@ export function AuthForm({ setUser }: AuthFormProps) {
       field:
         | 'companyName'
         | 'interviewerName'
-        | 'interviewRound'
-        | 'targetRole'
-        | 'techStack'
-        | 'resumeSummary'
-        | 'jobDescription'
-        | 'extraInstructions',
+        | 'resumeSummary',
     ) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       setFormState((prev) => ({ ...prev, [field]: e.target.value }));
@@ -205,16 +185,30 @@ export function AuthForm({ setUser }: AuthFormProps) {
   };
 
   const saveInterviewMetadata = async () => {
+    const existingMetadata =
+      await window.electronAPI.getInterviewMetadata();
+
     await window.electronAPI.setInterviewMetadata({
       companyName: formState.companyName.trim(),
       interviewerName: formState.interviewerName.trim(),
-      interviewRound: formState.interviewRound.trim(),
       answerDepth: formState.answerDepth,
-      targetRole: formState.targetRole.trim(),
-      techStack: formState.techStack.trim(),
+      chatSessionId:
+        existingMetadata.success
+          ? existingMetadata.metadata?.chatSessionId
+          : undefined,
+      chatSessionStartedAt:
+        existingMetadata.success
+          ? existingMetadata.metadata?.chatSessionStartedAt
+          : undefined,
+      chatContextClearedAt:
+        existingMetadata.success
+          ? existingMetadata.metadata?.chatContextClearedAt
+          : undefined,
+      solutionLanguage:
+        existingMetadata.success
+          ? existingMetadata.metadata?.solutionLanguage
+          : undefined,
       resumeSummary: formState.resumeSummary.trim(),
-      jobDescription: formState.jobDescription.trim(),
-      extraInstructions: formState.extraInstructions.trim(),
     });
   };
 
@@ -340,7 +334,6 @@ export function AuthForm({ setUser }: AuthFormProps) {
     formState.password &&
     formState.companyName &&
     formState.interviewerName &&
-    formState.interviewRound &&
     !formState.isResumeUploading &&
     !formState.passwordError;
 
@@ -450,63 +443,6 @@ export function AuthForm({ setUser }: AuthFormProps) {
                     required
                   />
                 </div>
-                <div className="space-y-1">
-                  <select
-                    value={formState.interviewRound}
-                    onChange={handleInterviewFieldChange('interviewRound')}
-                    className="w-full px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium transition-colors"
-                    required
-                  >
-                    <option value="" className="bg-[#1E2530] text-gray-400">
-                      Select round
-                    </option>
-                    <option value="1st Round" className="bg-[#1E2530]">
-                      1st Round
-                    </option>
-                    <option value="2nd Round" className="bg-[#1E2530]">
-                      2nd Round
-                    </option>
-                    <option value="Managerial Round" className="bg-[#1E2530]">
-                      Managerial Round
-                    </option>
-                    <option value="HR Round" className="bg-[#1E2530]">
-                      HR Round
-                    </option>
-                    <option value="Final Round" className="bg-[#1E2530]">
-                      Final Round
-                    </option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <input
-                    type="text"
-                    placeholder="Target role"
-                    value={formState.targetRole}
-                    onChange={handleInterviewFieldChange('targetRole')}
-                    className="w-full px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Tech stack"
-                    value={formState.techStack}
-                    onChange={handleInterviewFieldChange('techStack')}
-                    className="w-full px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
-                  />
-                </div>
-                <textarea
-                  placeholder="Job description / interview focus"
-                  value={formState.jobDescription}
-                  onChange={handleInterviewFieldChange('jobDescription')}
-                  rows={2}
-                  className="w-full resize-none px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
-                />
-                <textarea
-                  placeholder="Extra instructions for answers"
-                  value={formState.extraInstructions}
-                  onChange={handleInterviewFieldChange('extraInstructions')}
-                  rows={2}
-                  className="w-full resize-none px-3 py-2 text-gray-100 rounded-lg border border-gray-700 bg-[#1E2530]/70 focus:border-gray-600 focus:outline-hidden text-sm font-medium placeholder:text-gray-400 placeholder:font-normal transition-colors"
-                />
                 <button
                   type="submit"
                   disabled={formState.isLoading || !isFormValid}

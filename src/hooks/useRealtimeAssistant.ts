@@ -1,33 +1,26 @@
-// ============================================================
-// FILE: src/hooks/useRealtimeAssistant.ts
-// ============================================================
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ProgrammingLanguage } from '@shared/api.ts';
+import type { AnswerDepth, InterviewMetadata } from '@shared/api.ts';
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { AnswerDepth, InterviewMetadata } from "@shared/api.ts";
-
-import { AudioCapture } from "../realtime/audioCapture";
-
-import { RealtimeSocket } from "../realtime/RealtimeSocket";
-
-import { transcriptStore } from "../realtime/transcriptStore";
-
-import {
-
-    ASSISTANT_STATUS,
-
-    DEFAULT_REALTIME_URL,
-
-} from "../realtime/constants";
-
+import { ASSISTANT_STATUS, DEFAULT_REALTIME_URL } from '../realtime/constants';
+import { RealtimeSocket } from '../realtime/RealtimeSocket';
 import type {
     AssistantStatus,
-
-    RealtimeAssistantConfig
-
-} from "../realtime/types";
+    RealtimeAssistantConfig,
+    RealtimeAssistantState,
+} from '../realtime/types';
 
 const LIVE_RESUME_CONTEXT_LIMIT =
     12000;
+const INTERVIEW_SESSION_TTL_MS =
+    2 * 60 * 60 * 1000;
+
+let activeManualSocket: RealtimeSocket | null =
+    null;
+let activeManualSocketOwner =
+    0;
+let nextManualSocketOwner =
+    1;
 
 function appendInterviewMetadataToUrl(
     realtimeUrl: string,
@@ -40,10 +33,71 @@ function appendInterviewMetadataToUrl(
     const url = new URL(realtimeUrl);
     url.searchParams.set('companyName', metadata.companyName);
     url.searchParams.set('interviewerName', metadata.interviewerName);
-    url.searchParams.set('interviewRound', metadata.interviewRound);
     url.searchParams.set('answerDepth', metadata.answerDepth || 'medium');
+    if (metadata.chatSessionId) {
+        url.searchParams.set('chatSessionId', metadata.chatSessionId);
+    }
+    if (metadata.chatContextClearedAt) {
+        url.searchParams.set('chatContextClearedAt', String(metadata.chatContextClearedAt));
+    }
+    if (metadata.solutionLanguage) {
+        url.searchParams.set('solutionLanguage', metadata.solutionLanguage);
+    }
 
     return url.toString();
+}
+
+function createChatSessionId(): string {
+    const randomId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    return `chat-${randomId}`;
+}
+
+async function ensureSocketMetadata(
+    metadata: InterviewMetadata | null | undefined,
+    solutionLanguage: ProgrammingLanguage | undefined,
+): Promise<InterviewMetadata> {
+    const now =
+        Date.now();
+    const existingStartedAt =
+        metadata?.chatSessionStartedAt || 0;
+    const isExpired =
+        !metadata?.chatSessionId ||
+        !existingStartedAt ||
+        now - existingStartedAt > INTERVIEW_SESSION_TTL_MS;
+
+    const nextMetadata: InterviewMetadata = {
+        companyName: metadata?.companyName || '',
+        interviewerName: metadata?.interviewerName || '',
+        answerDepth: metadata?.answerDepth || 'short',
+        chatSessionId: isExpired
+            ? createChatSessionId()
+            : metadata.chatSessionId,
+        chatSessionStartedAt: isExpired
+            ? now
+            : existingStartedAt,
+        chatContextClearedAt: isExpired
+            ? undefined
+            : metadata?.chatContextClearedAt,
+        solutionLanguage: solutionLanguage || metadata?.solutionLanguage || ProgrammingLanguage.Java,
+        resumeSummary: metadata?.resumeSummary || '',
+    };
+
+    if (
+        !metadata ||
+        metadata.chatSessionId !== nextMetadata.chatSessionId ||
+        metadata.chatSessionStartedAt !== nextMetadata.chatSessionStartedAt ||
+        metadata.chatContextClearedAt !== nextMetadata.chatContextClearedAt ||
+        metadata.solutionLanguage !== nextMetadata.solutionLanguage ||
+        metadata.answerDepth !== nextMetadata.answerDepth
+    ) {
+        await window.electronAPI.setInterviewMetadata(nextMetadata);
+    }
+
+    return nextMetadata;
 }
 
 function limitText(
@@ -54,10 +108,10 @@ function limitText(
         return value;
     }
 
-    return `${value.slice(0, maxLength)}\n\n[Resume context truncated for live audio session.]`;
+    return `${value.slice(0, maxLength)}\n\n[Resume context truncated for manual question session.]`;
 }
 
-function metadataForLiveSocket(
+function metadataForSocket(
     metadata: InterviewMetadata,
 ): InterviewMetadata {
     return {
@@ -69,152 +123,98 @@ function metadataForLiveSocket(
     };
 }
 
-// ============================================================
-// HOOK
-// ============================================================
-
 export function useRealtimeAssistant(
-
-    config: Partial<
-        RealtimeAssistantConfig
-    > = {}
-
-) {
-
-    // ========================================================
-    // STATE
-    // ========================================================
-
+    config: Partial<RealtimeAssistantConfig> = {},
+): RealtimeAssistantState {
     const [status, setStatus] =
-        useState<AssistantStatus>(
-            ASSISTANT_STATUS.IDLE
-        );
-
-    const [running, setRunning] =
-        useState(false);
-
-    const [transcript, setTranscript] =
-        useState("");
-
+        useState<AssistantStatus>(ASSISTANT_STATUS.IDLE);
     const [response, setResponse] =
-        useState("");
-
+        useState('');
+    const [responseId, setResponseId] =
+        useState(0);
     const [error, setError] =
-        useState("");
-
-    const [audioEnabled, setAudioEnabledState] =
-        useState(true);
-
-    // ========================================================
-    // REFS
-    // ========================================================
+        useState('');
 
     const socketRef =
-        useRef<RealtimeSocket | null>(
-            null
-        );
-
-    const audioRef =
-        useRef<AudioCapture | null>(
-            null
-        );
-
+        useRef<RealtimeSocket | null>(null);
+    const ownerRef =
+        useRef(0);
+    const startSequenceRef =
+        useRef(0);
     const mountedRef =
         useRef(true);
-
-    const runningRef =
-        useRef(false);
-
     const startingRef =
         useRef(false);
 
-    const startTokenRef =
-        useRef(0);
-
-    const backendAudioPausedRef =
-        useRef(false);
-
-    const audioEnabledRef =
-        useRef(true);
-
-    // ========================================================
-    // START
-    // ========================================================
+    if (ownerRef.current === 0) {
+        ownerRef.current =
+            nextManualSocketOwner;
+        nextManualSocketOwner +=
+            1;
+    }
 
     const start = useCallback(
         async () => {
+            if (
+                socketRef.current?.isConnected() ||
+                startingRef.current
+            ) {
+                return;
+            }
+
+            startingRef.current =
+                true;
+            const startSequence =
+                startSequenceRef.current + 1;
+            startSequenceRef.current =
+                startSequence;
 
             try {
-
-                if (
-                    runningRef.current ||
-                    startingRef.current
-                ) {
-                    return;
-                }
-
-                startingRef.current = true;
-
-                const startToken =
-                    startTokenRef.current + 1;
-
-                startTokenRef.current =
-                    startToken;
-
-                setError("");
-
-                setTranscript("");
-
-                setResponse("");
-
-                transcriptStore.clear();
-
-                setStatus(
-                    ASSISTANT_STATUS.CONNECTING
-                );
-
-                // ============================================
-                // SOCKET
-                // ============================================
+                setError('');
+                setResponse('');
+                setStatus(ASSISTANT_STATUS.CONNECTING);
 
                 const metadataResult =
                     await window.electronAPI.getInterviewMetadata();
 
                 if (
                     !mountedRef.current ||
-                    startTokenRef.current !== startToken
+                    startSequenceRef.current !== startSequence
                 ) {
                     return;
                 }
 
-                const realtimeUrl =
-                    appendInterviewMetadataToUrl(
-                        config.realtimeUrl ||
-                            DEFAULT_REALTIME_URL,
+                const socketMetadata =
+                    await ensureSocketMetadata(
                         metadataResult.success
                             ? metadataResult.metadata
                             : null,
+                        config.solutionLanguage,
+                    );
+
+                const realtimeUrl =
+                    appendInterviewMetadataToUrl(
+                        config.realtimeUrl || DEFAULT_REALTIME_URL,
+                        socketMetadata,
                     );
 
                 const answerDepth =
-                    metadataResult.success
-                        ? metadataResult.metadata?.answerDepth
-                        : null;
+                    socketMetadata.answerDepth;
+
+                activeManualSocket?.disconnect();
+                activeManualSocket =
+                    null;
 
                 const socket =
                     new RealtimeSocket(
-
                         {
-                            realtimeUrl:
-                                realtimeUrl
+                            realtimeUrl,
                         },
-
                         {
-
                             onOpen: () => {
-
                                 if (
-                                    !mountedRef.current
+                                    !mountedRef.current ||
+                                    socketRef.current !== socket
                                 ) {
                                     return;
                                 }
@@ -226,343 +226,134 @@ export function useRealtimeAssistant(
                                     });
                                 }
 
-                                if (metadataResult.success && metadataResult.metadata) {
-                                    socketRef.current?.sendControlMessage({
-                                        type: 'interviewMetadata',
-                                        value: metadataForLiveSocket(
-                                            metadataResult.metadata,
-                                        ),
-                                    });
-                                }
+                                socketRef.current?.sendControlMessage({
+                                    type: 'interviewMetadata',
+                                    value: metadataForSocket(
+                                        socketMetadata,
+                                    ),
+                                });
 
-                                setStatus(
-                                    runningRef.current
-                                        ? ASSISTANT_STATUS.LISTENING
-                                        : ASSISTANT_STATUS.CONNECTED
-                                );
+                                setStatus(ASSISTANT_STATUS.CONNECTED);
                             },
-
                             onClose: () => {
-
                                 if (
-                                    !mountedRef.current
+                                    !mountedRef.current ||
+                                    socketRef.current !== socket
                                 ) {
                                     return;
                                 }
 
-                                if (runningRef.current) {
-                                    setStatus(
-                                        ASSISTANT_STATUS.CONNECTING
-                                    );
-                                    return;
-                                }
-
-                                runningRef.current =
-                                    false;
-
-                                setRunning(
-                                    false
-                                );
-
-                                setStatus(
-                                    ASSISTANT_STATUS.DISCONNECTED
-                                );
+                                setStatus(ASSISTANT_STATUS.DISCONNECTED);
                             },
-
                             onReconnecting: () => {
-
                                 if (
-                                    !mountedRef.current
+                                    !mountedRef.current ||
+                                    socketRef.current !== socket
                                 ) {
                                     return;
                                 }
 
-                                setStatus(
-                                    ASSISTANT_STATUS.CONNECTING
-                                );
+                                setStatus(ASSISTANT_STATUS.CONNECTING);
                             },
-
                             onReconnectFailed: () => {
-
                                 if (
-                                    !mountedRef.current
+                                    !mountedRef.current ||
+                                    socketRef.current !== socket
                                 ) {
                                     return;
                                 }
 
                                 setError(
-                                    "Backend connection lost. Please restart the assistant."
+                                    'Backend connection lost. Please restart the app.',
                                 );
-
-                                setStatus(
-                                    ASSISTANT_STATUS.ERROR
-                                );
-
-                                runningRef.current =
-                                    false;
-
-                                setRunning(false);
+                                setStatus(ASSISTANT_STATUS.ERROR);
                             },
-
-                            onResponse: (
-                                delta
-                            ) => {
-
+                            onResponse: (nextResponse) => {
                                 if (
-                                    !mountedRef.current
+                                    !mountedRef.current ||
+                                    socketRef.current !== socket
                                 ) {
                                     return;
                                 }
 
-                                setStatus(
-                                    ASSISTANT_STATUS.RESPONDING
-                                );
-
-                                setResponse(delta);
+                                setResponse(nextResponse);
+                                setResponseId((current) => current + 1);
+                                setStatus(ASSISTANT_STATUS.CONNECTED);
                             },
-
-                            onError: (
-                                err
-                            ) => {
-
-                                console.error(
-                                    err
-                                );
+                            onError: (err) => {
+                                console.error(err);
 
                                 if (
-                                    !mountedRef.current
+                                    !mountedRef.current ||
+                                    socketRef.current !== socket
                                 ) {
-                                    return;
-                                }
-
-                                if (!socketRef.current?.isConnected()) {
-                                    setStatus(
-                                        ASSISTANT_STATUS.CONNECTING
-                                    );
                                     return;
                                 }
 
                                 setError(
                                     err instanceof Error
                                         ? err.message
-                                        : "Realtime error"
+                                        : 'Realtime connection error',
                                 );
-                            }
-                        }
+                                setStatus(ASSISTANT_STATUS.ERROR);
+                            },
+                        },
                     );
 
                 socketRef.current =
                     socket;
+                activeManualSocket =
+                    socket;
+                activeManualSocketOwner =
+                    ownerRef.current;
 
                 await socket.connect();
-
-                if (
-                    !mountedRef.current ||
-                    startTokenRef.current !== startToken
-                ) {
-                    socket.disconnect();
-                    return;
-                }
-
-                // ============================================
-                // AUDIO
-                // ============================================
-
-                const audio =
-                    new AudioCapture(
-
-                        {},
-
-                        {
-
-                            onAudioData: (
-                                audioData
-                            ) => {
-
-                                if (
-                                    backendAudioPausedRef.current ||
-                                    !audioEnabledRef.current
-                                ) {
-                                    return;
-                                }
-
-                                socket.appendAudio(
-                                    audioData
-                                );
-                            },
-
-                            onStart: () => {
-
-                                if (
-                                    !mountedRef.current
-                                ) {
-                                    return;
-                                }
-
-                                setStatus(
-                                    ASSISTANT_STATUS.LISTENING
-                                );
-                            },
-
-                            onStop: () => {
-
-                                if (
-                                    !mountedRef.current
-                                ) {
-                                    return;
-                                }
-
-                                setStatus(
-                                    ASSISTANT_STATUS.DISCONNECTED
-                                );
-                            },
-
-                            onError: (
-                                err
-                            ) => {
-
-                                console.error(
-                                    err
-                                );
-
-                                if (
-                                    !mountedRef.current
-                                ) {
-                                    return;
-                                }
-
-                                setError(
-
-                                    err?.message ||
-
-                                    "Audio capture failed"
-                                );
-
-                                setStatus(
-                                    ASSISTANT_STATUS.ERROR
-                                );
-                            }
-                        }
-                    );
-
-                audioRef.current =
-                    audio;
-
-                await audio.start();
-
-                if (
-                    !mountedRef.current ||
-                    startTokenRef.current !== startToken
-                ) {
-                    audio.stop();
-                    socket.disconnect();
-                    return;
-                }
-
-                runningRef.current =
-                    true;
-
-                setRunning(true);
-
             } catch (e: any) {
+                if (
+                    !mountedRef.current ||
+                    startSequenceRef.current !== startSequence
+                ) {
+                    return;
+                }
 
                 console.error(e);
-
                 setError(
-
-                    e?.message ||
-
-                    "Failed to start assistant"
+                    e?.message || 'Failed to connect to backend',
                 );
-
-                setStatus(
-                    ASSISTANT_STATUS.ERROR
-                );
+                setStatus(ASSISTANT_STATUS.ERROR);
             } finally {
-
-                startingRef.current =
-                    false;
+                if (startSequenceRef.current === startSequence) {
+                    startingRef.current =
+                        false;
+                }
             }
         },
-
-        [
-            config.realtimeUrl
-        ]
+        [config.realtimeUrl, config.solutionLanguage],
     );
-
-    // ========================================================
-    // STOP
-    // ========================================================
 
     const stop = useCallback(
         () => {
-
             try {
-
-                audioRef.current?.stop();
-
-                audioRef.current =
-                    null;
-
+                startSequenceRef.current +=
+                    1;
                 socketRef.current?.disconnect();
-
+                if (activeManualSocketOwner === ownerRef.current) {
+                    activeManualSocket =
+                        null;
+                    activeManualSocketOwner =
+                        0;
+                }
                 socketRef.current =
                     null;
-
-                startTokenRef.current +=
-                    1;
-
-                runningRef.current =
-                    false;
-
                 startingRef.current =
                     false;
-
-                setRunning(false);
-
-                setStatus(
-                    ASSISTANT_STATUS.DISCONNECTED
-                );
-
+                setStatus(ASSISTANT_STATUS.DISCONNECTED);
             } catch (e) {
-
                 console.error(e);
             }
         },
-
-        []
+        [],
     );
-
-    // ========================================================
-    // CLEAR
-    // ========================================================
-
-    const clearConversation =
-        useCallback(() => {
-
-            transcriptStore.clear();
-
-            setTranscript("");
-
-            setResponse("");
-
-        }, []);
-
-    const setAudioEnabled =
-        useCallback((enabled: boolean) => {
-            audioEnabledRef.current =
-                enabled;
-
-            setAudioEnabledState(
-                enabled
-            );
-
-            setStatus(
-                enabled
-                    ? ASSISTANT_STATUS.LISTENING
-                    : ASSISTANT_STATUS.CONNECTED
-            );
-        }, []);
 
     const submitManualQuestion =
         useCallback((question: string): boolean => {
@@ -586,33 +377,85 @@ export function useRealtimeAssistant(
                 value: cleanedQuestion,
             });
 
-            setStatus(
-                ASSISTANT_STATUS.RESPONDING
-            );
+            setStatus(ASSISTANT_STATUS.RESPONDING);
 
             return true;
         }, []);
 
-    // ========================================================
-    // CLEANUP
-    // ========================================================
+    const resetChatSession =
+        useCallback(async () => {
+            try {
+                const metadataResult =
+                    await window.electronAPI.getInterviewMetadata();
+                const existingMetadata =
+                    metadataResult.success
+                        ? metadataResult.metadata
+                        : null;
+                const socketMetadata =
+                    await ensureSocketMetadata(
+                        existingMetadata,
+                        config.solutionLanguage,
+                    );
+                const clearedAt =
+                    Date.now();
+
+                const nextMetadata: InterviewMetadata = {
+                    companyName:
+                        socketMetadata.companyName || '',
+                    interviewerName:
+                        socketMetadata.interviewerName || '',
+                    answerDepth:
+                        socketMetadata.answerDepth || 'short',
+                    chatSessionId: socketMetadata.chatSessionId,
+                    chatSessionStartedAt: socketMetadata.chatSessionStartedAt,
+                    chatContextClearedAt: clearedAt,
+                    solutionLanguage:
+                        config.solutionLanguage ||
+                        socketMetadata.solutionLanguage ||
+                        ProgrammingLanguage.Java,
+                    resumeSummary:
+                        socketMetadata.resumeSummary || '',
+                };
+
+                await window.electronAPI.setInterviewMetadata(nextMetadata);
+
+                socketRef.current?.sendControlMessage({
+                    type: 'clearChatSession',
+                    value: {
+                        chatSessionId: nextMetadata.chatSessionId,
+                        clearedAt,
+                    },
+                });
+
+                socketRef.current?.sendControlMessage({
+                    type: 'interviewMetadata',
+                    value: metadataForSocket(nextMetadata),
+                });
+            } catch (err) {
+                console.error(err);
+                setError(
+                    err instanceof Error
+                        ? err.message
+                        : 'Failed to clear chat session',
+                );
+            }
+        }, [config.solutionLanguage]);
 
     useEffect(() => {
-
-        mountedRef.current = true;
+        mountedRef.current =
+            true;
 
         return () => {
-
-            mountedRef.current = false;
-
+            mountedRef.current =
+                false;
             stop();
         };
-
     }, [stop]);
 
     useEffect(() => {
         const handleAnswerDepthChange = (event: Event) => {
-            const answerDepth = (event as CustomEvent<AnswerDepth>).detail;
+            const answerDepth =
+                (event as CustomEvent<AnswerDepth>).detail;
 
             socketRef.current?.sendControlMessage({
                 type: 'answerDepth',
@@ -634,73 +477,38 @@ export function useRealtimeAssistant(
     }, []);
 
     useEffect(() => {
-        const pauseBackendAudio = () => {
-            backendAudioPausedRef.current =
-                true;
-        };
+        if (!config.solutionLanguage) {
+            return;
+        }
 
-        const resumeBackendAudio = () => {
-            backendAudioPausedRef.current =
-                false;
-        };
+        socketRef.current?.sendControlMessage({
+            type: 'solutionLanguage',
+            value: config.solutionLanguage,
+        });
 
-        window.addEventListener(
-            'vedha-local-audio-test-started',
-            pauseBackendAudio,
-        );
+        window.electronAPI
+            .getInterviewMetadata()
+            .then((result) => {
+                if (!result.success || !result.metadata) {
+                    return;
+                }
 
-        window.addEventListener(
-            'vedha-local-audio-test-ended',
-            resumeBackendAudio,
-        );
-
-        return () => {
-            window.removeEventListener(
-                'vedha-local-audio-test-started',
-                pauseBackendAudio,
-            );
-
-            window.removeEventListener(
-                'vedha-local-audio-test-ended',
-                resumeBackendAudio,
-            );
-        };
-    }, []);
-
-    // ========================================================
-    // RETURN
-    // ========================================================
+                return window.electronAPI.setInterviewMetadata({
+                    ...result.metadata,
+                    solutionLanguage: config.solutionLanguage,
+                });
+            })
+            .catch(console.error);
+    }, [config.solutionLanguage]);
 
     return {
-
-        // ================================================
-        // STATE
-        // ================================================
-
-        running,
-
-        audioEnabled,
-
         status,
-
-        transcript,
-
         response,
-
+        responseId,
         error,
-
-        // ================================================
-        // ACTIONS
-        // ================================================
-
         start,
-
         stop,
-
-        setAudioEnabled,
-
         submitManualQuestion,
-
-        clearConversation
+        resetChatSession,
     };
 }

@@ -1,7 +1,9 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { LATEST_ANSWER_LIMIT } from '@shared/constants.ts';
-import { Mic, MicOff, Send } from 'lucide-react';
+import { LoaderCircle, Send, Trash2, X } from 'lucide-react';
+
+import { AnswerDepthSelector } from '../components/shared/AnswerDepthSelector';
+import { LanguageSelector } from '../components/shared/LanguageSelector';
 
 import {
     CommandSection,
@@ -28,21 +30,19 @@ interface SolutionsPageProps {
             | 'solutions'
             | 'debug',
     ) => void;
-    audioEnabled?: boolean;
-    onAudioEnabledChange?: (
-        enabled: boolean,
-    ) => void;
     onManualQuestionSubmit?: (
         question: string,
     ) => boolean;
+    onClearChat?: () => void;
+    isManualQuestionProcessing?: boolean;
 }
 
 const SolutionsPage:
     React.FC<SolutionsPageProps> = ({
                                         setView: _setView,
-                                        audioEnabled = true,
-                                        onAudioEnabledChange,
                                         onManualQuestionSubmit,
+                                        onClearChat,
+                                        isManualQuestionProcessing = false,
                                     }) => {
 
     const [
@@ -57,6 +57,7 @@ const SolutionsPage:
 
     const {
         state: solutionState,
+        clearSolution,
     } = useSolutionContext();
 
     const {
@@ -104,12 +105,11 @@ const SolutionsPage:
     const visibleSolutions =
         solutionHistory;
 
-    const latestAnswerSummary =
-        LATEST_ANSWER_LIMIT === 0
-            ? 'Showing all interviewer questions and answers'
-            : `Showing latest ${LATEST_ANSWER_LIMIT} interviewer questions and answers`;
-
     const handleManualQuestionSubmit = () => {
+        if (isManualQuestionProcessing) {
+            return;
+        }
+
         const question =
             manualQuestion.replace(/\s+/g, ' ')
                 .trim();
@@ -136,6 +136,25 @@ const SolutionsPage:
         setManualQuestion('');
         setManualSubmitError('');
     };
+
+    const clearManualQuestion = () => {
+        setManualQuestion('');
+        setManualSubmitError('');
+    };
+
+    const handleClearChat = () => {
+        clearSolution();
+        onClearChat?.();
+    };
+
+    const isManualSubmitShortcut = (
+        event: React.KeyboardEvent<HTMLTextAreaElement>,
+    ) =>
+        (event.ctrlKey || event.metaKey) &&
+        (
+            event.key.toLowerCase() === 'm' ||
+            event.code === 'KeyM'
+        );
 
     const hasSolutionContent =
         Boolean(
@@ -180,66 +199,71 @@ const SolutionsPage:
     );
 
     const solutionSection = (
-        <div className="w-full max-w-[720px] space-y-6">
+        <div className="w-full max-w-[1040px] space-y-6">
 
             <div className="w-full overflow-hidden rounded-3xl border border-zinc-800/70 bg-zinc-950/70 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-md">
 
-                <div className="border-b border-zinc-800 px-5 py-4">
+                <div className="border-b border-zinc-800 px-5 py-2.5">
 
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
                         <div>
 
-                            <h1 className="text-xl font-bold tracking-tight text-white">
+                            <h1 className="text-lg font-semibold tracking-tight text-white">
                                 Latest answers
                             </h1>
 
-                            <p className="mt-1.5 text-xs text-zinc-400">
-                                {latestAnswerSummary}
+                            <p className="mt-0.5 text-xs text-zinc-400">
+                                Current chat questions and answers
                             </p>
 
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => onAudioEnabledChange?.(!audioEnabled)}
-                            className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition ${
-                                audioEnabled
-                                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15'
-                                    : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'
-                            }`}
-                            title={
-                                audioEnabled
-                                    ? 'Audio listening is on'
-                                    : 'Audio listening is off'
-                            }
-                        >
-                            {audioEnabled ? (
-                                <Mic className="h-4 w-4" />
-                            ) : (
-                                <MicOff className="h-4 w-4" />
-                            )}
-                            <span>
-                                {audioEnabled ? 'Audio On' : 'Audio Off'}
-                            </span>
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+
+                            <LanguageSelector
+                                compact
+                                showReadableVarNames={false}
+                            />
+
+                            <AnswerDepthSelector
+                                compact
+                                depths={[
+                                    'short',
+                                    'medium',
+                                    'systemdesign',
+                                ]}
+                            />
+
+                            <button
+                                type="button"
+                                onClick={handleClearChat}
+                                disabled={!hasSolutionContent}
+                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 text-[11px] font-medium text-zinc-300 transition hover:border-rose-500/50 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Clear chat window"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span>Clear Chat</span>
+                            </button>
+
+                        </div>
 
                     </div>
 
                 </div>
 
-                <div className="w-full p-5 xl:p-6">
+                <div className="w-full p-4 xl:p-5">
 
-                    <div className="mb-5 rounded-2xl border border-zinc-800/70 bg-zinc-950/60 p-4">
+                    <div className="mb-4 rounded-2xl border border-zinc-800/70 bg-zinc-950/60 p-4">
 
                         <label
                             htmlFor="manual-question"
-                            className="text-xs font-semibold uppercase tracking-wide text-zinc-400"
+                            className="text-sm font-semibold uppercase tracking-wide text-zinc-300"
                         >
                             Manual question
                         </label>
 
-                        <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+                        <div className="mt-3 flex flex-col gap-4 md:flex-row">
 
                             <textarea
                                 id="manual-question"
@@ -250,28 +274,60 @@ const SolutionsPage:
                                 }}
                                 onKeyDown={(event) => {
                                     if (
-                                        event.key === 'Enter' &&
+                                        event.key === 'Backspace' &&
                                         (event.ctrlKey || event.metaKey)
                                     ) {
+                                        event.preventDefault();
+                                        clearManualQuestion();
+                                        return;
+                                    }
+
+                                    if (isManualSubmitShortcut(event)) {
                                         event.preventDefault();
                                         handleManualQuestionSubmit();
                                     }
                                 }}
-                                rows={3}
-                                className="min-h-[76px] flex-1 resize-none rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm leading-5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-cyan-500/70 focus:ring-2 focus:ring-cyan-500/20"
+                                rows={5}
+                                className="min-h-[150px] flex-1 resize-y rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-xs font-normal leading-5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-cyan-500/70 focus:ring-2 focus:ring-cyan-500/20"
                                 placeholder="Type the interviewer question here"
                             />
 
-                            <button
-                                type="button"
-                                onClick={handleManualQuestionSubmit}
-                                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 sm:self-end"
-                                disabled={!manualQuestion.trim()}
-                                title="Send typed question"
-                            >
-                                <Send className="h-4 w-4" />
-                                <span>Send</span>
-                            </button>
+                            <div className="flex shrink-0 flex-col gap-2 md:self-end">
+
+                                <button
+                                    type="button"
+                                    onClick={clearManualQuestion}
+                                    className="inline-flex h-12 min-w-[108px] items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-4 text-xs font-medium text-zinc-300 transition hover:border-rose-500/50 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={!manualQuestion}
+                                    title="Clear typed question (Ctrl+Backspace)"
+                                >
+                                    <X className="h-4 w-4" />
+                                    <span>Clear</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleManualQuestionSubmit}
+                                    className="inline-flex h-12 min-w-[108px] items-center justify-center gap-2 rounded-xl bg-cyan-500 px-6 text-base font-semibold text-zinc-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={
+                                        !manualQuestion.trim() ||
+                                        isManualQuestionProcessing
+                                    }
+                                    title="Send typed question (Ctrl+M)"
+                                >
+                                    {isManualQuestionProcessing ? (
+                                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Send className="h-5 w-5" />
+                                    )}
+                                    <span>
+                                        {isManualQuestionProcessing
+                                            ? 'Sending'
+                                            : 'Send'}
+                                    </span>
+                                </button>
+
+                            </div>
 
                         </div>
 
@@ -324,10 +380,6 @@ const SolutionsPage:
 
                                         <div className="p-4">
 
-                                            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                                                Answer:
-                                            </div>
-
                                             <SolutionSection
                                                 solutionData={
                                                     solution.code || null
@@ -337,18 +389,6 @@ const SolutionsPage:
                                                 }
                                                 diagramData={
                                                     solution.diagramMermaid || null
-                                                }
-                                                thoughtsData={
-                                                    solution.thoughts || null
-                                                }
-                                                followUpQuestions={
-                                                    solution.followUpQuestions || null
-                                                }
-                                                sayThis={
-                                                    solution.sayThis || null
-                                                }
-                                                example={
-                                                    solution.example || null
                                                 }
                                                 title="Answer"
                                             />
@@ -371,11 +411,11 @@ const SolutionsPage:
     return (
         <div
             ref={contentRef}
-            className="relative w-full overflow-x-hidden px-4 py-4"
+            className="relative w-full overflow-x-hidden px-4 py-1"
         >
 
             <LiveInterviewLayout
-                className="flex-col items-center overflow-x-hidden pr-0"
+                className="flex-col items-center gap-2 overflow-x-hidden pb-0 pr-0"
                 screenshotSection={
                     screenshotSection
                 }

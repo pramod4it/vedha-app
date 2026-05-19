@@ -1,6 +1,6 @@
 // ============================================================
 // FILE: src/realtime/RealtimeSocket.ts
-// Backend audio websocket client. Model providers stay on the backend.
+// Backend manual-question websocket client. Model providers stay on the backend.
 // ============================================================
 
 import {
@@ -66,14 +66,6 @@ export class RealtimeSocket {
         });
     }
 
-    appendAudio(audioData: ArrayBuffer) {
-        if (!this.ws || !this.connected || this.ws.readyState !== WebSocket.OPEN) {
-            return;
-        }
-
-        this.ws.send(audioData);
-    }
-
     sendControlMessage(payload: Record<string, unknown>) {
         if (!this.ws || !this.connected || this.ws.readyState !== WebSocket.OPEN) {
             return;
@@ -107,7 +99,7 @@ export class RealtimeSocket {
             this.clearReconnectTimer();
 
             console.info(
-                '[RealtimeSocket] Connecting to backend audio websocket:',
+                '[RealtimeSocket] Connecting to backend manual websocket:',
                 this.config.realtimeUrl,
             );
 
@@ -115,7 +107,7 @@ export class RealtimeSocket {
             this.ws.binaryType = 'arraybuffer';
 
             this.ws.onopen = () => {
-                console.info('[RealtimeSocket] Backend audio websocket connected');
+                console.info('[RealtimeSocket] Backend manual websocket connected');
                 this.connected = true;
                 this.reconnectAttempts = 0;
                 this.callbacks.onOpen?.();
@@ -126,19 +118,23 @@ export class RealtimeSocket {
 
             this.ws.onmessage = (event) => {
                 if (typeof event.data === 'string') {
+                    console.info(
+                        '[RealtimeSocket] Backend manual websocket response received length=',
+                        event.data.length,
+                    );
                     this.callbacks.onResponse?.(event.data);
                 }
             };
 
             this.ws.onerror = (event) => {
-                console.error('[RealtimeSocket] Backend audio websocket error', event);
+                console.error('[RealtimeSocket] Backend manual websocket error', event);
                 this.connected = false;
                 this.callbacks.onError?.(event);
             };
 
             this.ws.onclose = (event) => {
                 console.info(
-                    '[RealtimeSocket] Backend audio websocket closed',
+                    '[RealtimeSocket] Backend manual websocket closed',
                     event.code,
                     event.reason,
                 );
@@ -172,7 +168,7 @@ export class RealtimeSocket {
             this.config.maxReconnectAttempts || WEBSOCKET_MAX_RETRIES;
 
         if (this.reconnectAttempts >= maxAttempts) {
-            console.error('[RealtimeSocket] Backend audio websocket reconnect failed');
+            console.error('[RealtimeSocket] Backend manual websocket reconnect failed');
             this.callbacks.onReconnectFailed?.();
             this.callbacks.onClose?.();
             this.pendingConnectReject?.(

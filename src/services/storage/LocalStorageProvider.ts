@@ -11,6 +11,14 @@ export class LocalStorageProvider implements IStorageProvider {
       : AppMode.LIVE_INTERVIEW;
   }
 
+  private normalizeSolutionLanguage(language?: ProgrammingLanguage): ProgrammingLanguage {
+    return language === ProgrammingLanguage.C ||
+      language === ProgrammingLanguage.Cpp ||
+      language === ProgrammingLanguage.Java
+      ? language
+      : ProgrammingLanguage.Java;
+  }
+
   getSettings(): Promise<UserSettings> {
     const stored = localStorage.getItem(this.STORAGE_KEY);
     if (stored) {
@@ -22,7 +30,7 @@ export class LocalStorageProvider implements IStorageProvider {
         };
 
         return Promise.resolve({
-          solutionLanguage: parsed.solutionLanguage || ProgrammingLanguage.Python,
+          solutionLanguage: this.normalizeSolutionLanguage(parsed.solutionLanguage),
           userLanguage: parsed.userLanguage || UserLanguage.EN_US,
           appMode: this.normalizeAppMode(parsed.appMode),
         });
@@ -32,7 +40,7 @@ export class LocalStorageProvider implements IStorageProvider {
     }
 
     return Promise.resolve({
-      solutionLanguage: ProgrammingLanguage.Python,
+      solutionLanguage: ProgrammingLanguage.Java,
       userLanguage: UserLanguage.EN_US,
       appMode: AppMode.LIVE_INTERVIEW,
     });
@@ -41,6 +49,10 @@ export class LocalStorageProvider implements IStorageProvider {
   async updateSettings(settings: Partial<UserSettings>): Promise<void> {
     const currentSettings = await this.getSettings();
     const newSettings = { ...currentSettings, ...settings };
+    if (settings.solutionLanguage) {
+      newSettings.solutionLanguage =
+        this.normalizeSolutionLanguage(settings.solutionLanguage);
+    }
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(newSettings));
   }
 

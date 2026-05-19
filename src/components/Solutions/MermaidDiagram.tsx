@@ -5,6 +5,20 @@ interface MermaidDiagramProps {
   chart: string;
 }
 
+function cleanMermaidChart(chart: string): string {
+  return chart
+    .replace(/```mermaid/gi, '')
+    .replace(/```/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\u2192/g, '-->')
+    .replace(/\u2013|\u2014/g, '-')
+    .split('\n')
+    .map((line) => line.trimEnd().replace(/;+\s*$/, ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+
 const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ chart }) => {
   const id = useId().replace(/:/g, '');
   const [svg, setSvg] = useState<string | null>(null);
@@ -16,6 +30,8 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ chart }) => {
     async function renderDiagram() {
       try {
         const mermaid = (await import('mermaid')).default;
+        const cleanedChart =
+          cleanMermaidChart(chart);
 
         mermaid.initialize({
           startOnLoad: false,
@@ -27,10 +43,19 @@ const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ chart }) => {
           },
         });
 
-        const result = await mermaid.render(
-          `interview-diagram-${id}`,
-          chart,
-        );
+        let result;
+
+        try {
+          result = await mermaid.render(
+            `interview-diagram-${id}`,
+            cleanedChart,
+          );
+        } catch {
+          result = await mermaid.render(
+            `interview-diagram-retry-${id}`,
+            cleanedChart.replace(/^graph\s+/i, 'flowchart '),
+          );
+        }
 
         if (!cancelled) {
           setSvg(result.svg);

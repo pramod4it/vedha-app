@@ -1,9 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { SolveResponse } from '@shared/api.ts';
-
-jest.mock('@shared/constants.ts', () => ({
-  LATEST_ANSWER_LIMIT: 5,
-}));
 
 import SolutionsPage from './SolutionsPage';
 
@@ -20,6 +16,7 @@ jest.mock('../contexts/SolutionContext', () => ({
       solutionHistory: [],
       newSolution: null,
     },
+    clearSolution: jest.fn(),
   }),
 }));
 
@@ -48,6 +45,14 @@ jest.mock('../components/sections', () => ({
   ),
 }));
 
+jest.mock('../components/shared/AnswerDepthSelector', () => ({
+  AnswerDepthSelector: () => <div data-testid="answer-depth-selector" />,
+}));
+
+jest.mock('../components/shared/LanguageSelector', () => ({
+  LanguageSelector: () => <div data-testid="language-selector" />,
+}));
+
 function solution(
   question: string,
   answer: string,
@@ -69,11 +74,17 @@ function solution(
 
 describe('SolutionsPage', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     window.electronAPI.updateContentDimensions =
       jest.fn().mockResolvedValue(undefined);
+    window.electronAPI.getInterviewMetadata =
+      jest.fn().mockResolvedValue({
+        success: true,
+        metadata: null,
+      });
   });
 
-  test('shows latest five question-answer pairs with newest first', () => {
+  test('shows current chat question-answer pairs with newest first', () => {
     mockUseSolutions.mockReturnValue({
       debugProcessing: false,
       solutionData: null,
@@ -116,6 +127,132 @@ describe('SolutionsPage', () => {
     expect(text.indexOf('4. Q4')).toBeLessThan(text.indexOf('3. Q3'));
     expect(text.indexOf('3. Q3')).toBeLessThan(text.indexOf('2. Q2'));
     expect(text.indexOf('2. Q2')).toBeLessThan(text.indexOf('1. Q1'));
-    expect(screen.getAllByText('Answer:')).toHaveLength(5);
+    expect(screen.queryByText('Answer:')).not.toBeInTheDocument();
+    expect(screen.getByTestId('language-selector')).toBeInTheDocument();
+    expect(screen.getByTestId('answer-depth-selector')).toBeInTheDocument();
+    expect(screen.getByText('Current chat questions and answers')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear chat/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', { name: /clear/i })
+        .some((button) => !button.hasAttribute('disabled')),
+    ).toBe(true);
+  });
+
+  test('leaves manual question empty when interview metadata exists', () => {
+    window.electronAPI.getInterviewMetadata =
+      jest.fn().mockResolvedValue({
+        success: true,
+        metadata: {
+          companyName: 'Acme',
+          interviewerName: 'Priya',
+          answerDepth: 'medium',
+          resumeSummary: 'Built distributed APIs.',
+        },
+      });
+
+    mockUseSolutions.mockReturnValue({
+      debugProcessing: false,
+      solutionData: null,
+      answerTextData: null,
+      diagramData: null,
+      thoughtsData: null,
+      solutionHistory: [],
+      isResetting: false,
+      screenshots: [],
+      contentRef: { current: null },
+      handleDeleteScreenshot: jest.fn(),
+      setDebugProcessing: jest.fn(),
+    });
+
+    render(
+      <SolutionsPage setView={jest.fn()} />,
+    );
+
+    const textarea =
+      screen.getByLabelText('Manual question');
+
+    expect(textarea).toHaveValue('');
+    expect(window.electronAPI.getInterviewMetadata).not.toHaveBeenCalled();
+  });
+
+  test('clears manual question with Ctrl Backspace shortcut', () => {
+    mockUseSolutions.mockReturnValue({
+      debugProcessing: false,
+      solutionData: null,
+      answerTextData: null,
+      diagramData: null,
+      thoughtsData: null,
+      solutionHistory: [],
+      isResetting: false,
+      screenshots: [],
+      contentRef: { current: null },
+      handleDeleteScreenshot: jest.fn(),
+      setDebugProcessing: jest.fn(),
+    });
+
+    render(
+      <SolutionsPage setView={jest.fn()} />,
+    );
+
+    const textarea =
+      screen.getByLabelText('Manual question');
+
+    fireEvent.change(textarea, {
+      target: {
+        value: 'What is Java?',
+      },
+    });
+    expect(textarea).toHaveValue('What is Java?');
+
+    fireEvent.keyDown(textarea, {
+      key: 'Backspace',
+      ctrlKey: true,
+    });
+
+    expect(textarea).toHaveValue('');
+  });
+
+  test('submits manual question with Ctrl M shortcut', () => {
+    const onManualQuestionSubmit =
+      jest.fn().mockReturnValue(true);
+
+    mockUseSolutions.mockReturnValue({
+      debugProcessing: false,
+      solutionData: null,
+      answerTextData: null,
+      diagramData: null,
+      thoughtsData: null,
+      solutionHistory: [],
+      isResetting: false,
+      screenshots: [],
+      contentRef: { current: null },
+      handleDeleteScreenshot: jest.fn(),
+      setDebugProcessing: jest.fn(),
+    });
+
+    render(
+      <SolutionsPage
+        setView={jest.fn()}
+        onManualQuestionSubmit={onManualQuestionSubmit}
+      />,
+    );
+
+    const textarea =
+      screen.getByLabelText('Manual question');
+
+    fireEvent.change(textarea, {
+      target: {
+        value: 'What is Java?',
+      },
+    });
+
+    fireEvent.keyDown(textarea, {
+      key: 'm',
+      code: 'KeyM',
+      ctrlKey: true,
+    });
+
+    expect(onManualQuestionSubmit).toHaveBeenCalledWith('What is Java?');
+    expect(textarea).toHaveValue('');
   });
 });

@@ -1,11 +1,19 @@
 import Store from 'electron-store';
-import { AppMode } from '../shared/api';
+import { AppMode, ProgrammingLanguage } from '../shared/api';
 import { type AppStoreSchema, ELECTRON_STORAGE_KEYS, ELECTRON_STORES } from '../shared/storage';
 
 function normalizeAnswerDepth(
   answerDepth: NonNullable<AppStoreSchema['interviewMetadata']>['answerDepth'] | undefined,
 ): NonNullable<AppStoreSchema['interviewMetadata']>['answerDepth'] {
-  return answerDepth === 'short' || answerDepth === 'systemdesign' ? answerDepth : 'medium';
+  return answerDepth === 'medium' || answerDepth === 'systemdesign' ? answerDepth : 'short';
+}
+
+function normalizeSolutionLanguage(
+  solutionLanguage: NonNullable<AppStoreSchema['interviewMetadata']>['solutionLanguage'] | undefined,
+): ProgrammingLanguage {
+  return solutionLanguage === ProgrammingLanguage.C || solutionLanguage === ProgrammingLanguage.Cpp
+    ? solutionLanguage
+    : ProgrammingLanguage.Java;
 }
 
 export interface IAppStore {
@@ -35,27 +43,26 @@ const store = new Store<AppStoreSchema>({
         interviewerName: {
           type: 'string',
         },
-        interviewRound: {
-          type: 'string',
-        },
         answerDepth: {
           type: 'string',
           enum: ['short', 'medium', 'deep', 'systemdesign'],
-          default: 'medium',
+          default: 'short',
         },
-        targetRole: {
+        chatSessionId: {
           type: 'string',
         },
-        techStack: {
+        chatSessionStartedAt: {
+          type: 'number',
+        },
+        chatContextClearedAt: {
+          type: 'number',
+        },
+        solutionLanguage: {
           type: 'string',
+          enum: ['java', 'c', 'cpp'],
+          default: ProgrammingLanguage.Java,
         },
         resumeSummary: {
-          type: 'string',
-        },
-        jobDescription: {
-          type: 'string',
-        },
-        extraInstructions: {
           type: 'string',
         },
       },
@@ -104,6 +111,7 @@ export class AppStorage {
         ? {
             ...value,
             answerDepth: normalizeAnswerDepth(value.answerDepth),
+            solutionLanguage: normalizeSolutionLanguage(value.solutionLanguage),
           }
         : value,
     );
@@ -119,6 +127,7 @@ export class AppStorage {
     return {
       ...metadata,
       answerDepth: normalizeAnswerDepth(metadata.answerDepth),
+      solutionLanguage: normalizeSolutionLanguage(metadata.solutionLanguage),
     };
   }
 }

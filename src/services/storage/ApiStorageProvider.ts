@@ -1,6 +1,6 @@
 import {
   AppMode,
-  type ProgrammingLanguage,
+  ProgrammingLanguage,
   type UserLanguage,
   type UserSettingsUpdateRequest,
 } from '@shared/api.ts';
@@ -8,11 +8,19 @@ import { settingsService } from '../settings';
 import type { IStorageProvider, UserSettings } from './StorageProvider';
 
 export class ApiStorageProvider implements IStorageProvider {
+  private normalizeSolutionLanguage(language?: ProgrammingLanguage): ProgrammingLanguage {
+    return language === ProgrammingLanguage.C ||
+      language === ProgrammingLanguage.Cpp ||
+      language === ProgrammingLanguage.Java
+      ? language
+      : ProgrammingLanguage.Java;
+  }
+
   async getSettings(): Promise<UserSettings> {
     const settings = await settingsService.getSettings();
 
     return {
-      solutionLanguage: settings.solutionLanguage,
+      solutionLanguage: this.normalizeSolutionLanguage(settings.solutionLanguage),
       userLanguage: settings.userLanguage,
       appMode: AppMode.LIVE_INTERVIEW,
     };
@@ -21,7 +29,9 @@ export class ApiStorageProvider implements IStorageProvider {
   async updateSettings(settings: Partial<UserSettings>): Promise<void> {
     const currentSettings = await this.getSettings();
     const updatedSettings: UserSettingsUpdateRequest = {
-      solutionLanguage: settings.solutionLanguage ?? currentSettings.solutionLanguage,
+      solutionLanguage: this.normalizeSolutionLanguage(
+        settings.solutionLanguage ?? currentSettings.solutionLanguage,
+      ),
       userLanguage: settings.userLanguage ?? currentSettings.userLanguage,
     };
     await settingsService.updateSettings(updatedSettings);
