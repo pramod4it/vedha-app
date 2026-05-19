@@ -6,7 +6,7 @@ cd /d "%~dp0"
 set "VITE_API_BASE_URL=http://localhost:9090"
 set "VITE_BACKEND_MANUAL_WS_URL=ws://localhost:9090/ws/interview/manual"
 set "VEDHA_SERVICE_DIR=D:\vedha-service"
-set "OPENAI_KEY_FILE=%~dp0.openai-key"
+set "OPENAI_KEY_FILE=%~dp0.openai_key"
 
 echo Starting Vedha app...
 echo Backend API: %VITE_API_BASE_URL%
