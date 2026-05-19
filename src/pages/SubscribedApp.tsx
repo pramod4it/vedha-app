@@ -8,8 +8,8 @@ import { SubscriptionProvider } from '../contexts/SubscriptionContext';
 import { useToast } from '../contexts/toast';
 import { useRealtimeAssistant } from '../hooks/useRealtimeAssistant';
 import { AppModeLayoutProvider } from '../layouts';
-import { QueuePage, SolutionsPage } from '.';
 import { ASSISTANT_STATUS } from '../realtime/constants';
+import { QueuePage, SolutionsPage } from '.';
 
 interface SubscribedAppProps {
   user: AuthenticatedUser;
@@ -38,31 +38,19 @@ function toText(value: unknown): string {
     return value.trim();
   }
 
-  if (
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
+  if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value);
   }
 
   if (Array.isArray(value)) {
-    return value
-      .map(toText)
-      .filter(Boolean)
-      .join('\n');
+    return value.map(toText).filter(Boolean).join('\n');
   }
 
   if (value && typeof value === 'object') {
-    const record =
-      value as Record<string, unknown>;
-    const nestedText =
-      toText(
-        record.text ??
-          record.content ??
-          record.value ??
-          record.answer ??
-          record.description,
-      );
+    const record = value as Record<string, unknown>;
+    const nestedText = toText(
+      record.text ?? record.content ?? record.value ?? record.answer ?? record.description,
+    );
 
     if (nestedText) {
       return nestedText;
@@ -76,10 +64,8 @@ function parseRealtimeResponse(response: string): Partial<SolveResponse> {
   try {
     return JSON.parse(response) as Partial<SolveResponse>;
   } catch {
-    const start =
-      response.indexOf('{');
-    const end =
-      response.lastIndexOf('}');
+    const start = response.indexOf('{');
+    const end = response.lastIndexOf('}');
 
     if (start >= 0 && end > start) {
       return JSON.parse(response.slice(start, end + 1)) as Partial<SolveResponse>;
@@ -99,6 +85,7 @@ const SubscribedAppContent: React.FC = () => {
     start,
     response,
     responseId,
+    transcript,
     error,
     status,
     submitManualQuestion,
@@ -140,28 +127,16 @@ const SubscribedAppContent: React.FC = () => {
 
     try {
       const parsed = parseRealtimeResponse(response);
-      const thoughts =
-        toStringArray(parsed.thoughts);
-      const followUpQuestions =
-        toStringArray(parsed.followUpQuestions);
-      const code =
-        toText(parsed.code);
-      const answerText =
-        toText(parsed.answerText);
-      const diagramMermaid =
-        toText(parsed.diagramMermaid);
-      const problemStatement =
-        toText(parsed.problemStatement);
-      const sayThis =
-        toText(parsed.sayThis);
-      const example =
-        toText(parsed.example);
+      const thoughts = toStringArray(parsed.thoughts);
+      const followUpQuestions = toStringArray(parsed.followUpQuestions);
+      const code = toText(parsed.code);
+      const answerText = toText(parsed.answerText);
+      const diagramMermaid = toText(parsed.diagramMermaid);
+      const problemStatement = toText(parsed.problemStatement);
+      const sayThis = toText(parsed.sayThis);
+      const example = toText(parsed.example);
       const hasContent = Boolean(
-        code ||
-          answerText ||
-          diagramMermaid ||
-          problemStatement ||
-          thoughts.length > 0,
+        code || answerText || diagramMermaid || problemStatement || thoughts.length > 0,
       );
 
       setSolution({
@@ -171,23 +146,16 @@ const SubscribedAppContent: React.FC = () => {
             : hasContent
               ? []
               : ['The backend returned an answer in an unexpected shape. Showing the raw answer.'],
-        code:
-          hasContent
-            ? code
-            : response,
+        code: hasContent ? code : response,
         answerText,
         diagramMermaid,
         messageType: toText(parsed.messageType) || 'NEW_QUESTION',
         parentQuestionId:
-          typeof parsed.parentQuestionId === 'number'
-            ? parsed.parentQuestionId
-            : undefined,
+          typeof parsed.parentQuestionId === 'number' ? parsed.parentQuestionId : undefined,
         answerDepth: parsed.answerDepth,
         timeComplexity: toText(parsed.timeComplexity) || 'Unknown',
         spaceComplexity: toText(parsed.spaceComplexity) || 'Unknown',
-        problemStatement:
-          problemStatement ||
-          'Manual question',
+        problemStatement: problemStatement || 'Manual question',
         conversationId: toText(parsed.conversationId),
         followUpQuestions,
         sayThis,
@@ -217,14 +185,8 @@ const SubscribedAppContent: React.FC = () => {
       if (!containerRef.current) {
         return;
       }
-      const minWidth =
-        view === 'solutions'
-          ? 1800
-          : 360;
-      const minHeight =
-        view === 'solutions'
-          ? 900
-          : 240;
+      const minWidth = view === 'solutions' ? 1800 : 360;
+      const minHeight = view === 'solutions' ? 900 : 240;
       const height = Math.max(containerRef.current.scrollHeight, minHeight);
       const width = Math.max(containerRef.current.scrollWidth, minWidth);
       window.electronAPI
@@ -293,6 +255,7 @@ const SubscribedAppContent: React.FC = () => {
               resetChatSession().catch(console.error);
             }}
             isManualQuestionProcessing={status === ASSISTANT_STATUS.RESPONDING}
+            audioTranscript={transcript}
           />
         ) : null}
       </div>
