@@ -20,11 +20,17 @@ if "%OPENAI_API_KEY%"=="" (
 if "%OPENAI_API_KEY%"=="" (
   echo.
   echo OPENAI_API_KEY is missing.
-  echo Save it once in this private local file:
+  echo Paste your OpenAI API key now. It will be saved locally in:
   echo   %OPENAI_KEY_FILE%
   echo.
-  echo PowerShell example:
-  echo   Set-Content -NoNewline -Path "%OPENAI_KEY_FILE%" -Value "sk-..."
+  set /p OPENAI_API_KEY=OpenAI API key:
+  if not "%OPENAI_API_KEY%"=="" (
+    >"%OPENAI_KEY_FILE%" <nul set /p="%OPENAI_API_KEY%"
+    echo Key saved locally.
+  )
+)
+
+if "%OPENAI_API_KEY%"=="" (
   echo.
   echo The backend will not start without this key, so no OpenAI API calls can happen.
   pause
