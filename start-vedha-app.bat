@@ -1,101 +1,75 @@
 @echo off
 setlocal
 
-cd /d "%~dp0"
-
-set "VITE_API_BASE_URL=http://localhost:9090"
-set "VITE_BACKEND_MANUAL_WS_URL=ws://localhost:9090/ws/interview/manual"
+set "VEDHA_APP_DIR=%~dp0"
 set "VEDHA_SERVICE_DIR=D:\vedha-service"
-set "OPENAI_KEY_FILE=%~dp0.openai_key"
+set "VEDHA_EXE=%VEDHA_APP_DIR%release\win-unpacked\Vedha.exe"
 
-echo Starting Vedha app...
-echo Backend API: %VITE_API_BASE_URL%
+echo Starting Vedha backend Docker service...
 
-if "%OPENAI_API_KEY%"=="" (
-  if exist "%OPENAI_KEY_FILE%" (
-    set /p OPENAI_API_KEY=<"%OPENAI_KEY_FILE%"
-  )
-)
-
-if "%OPENAI_API_KEY%"=="" (
+if not exist "%VEDHA_SERVICE_DIR%\docker-compose.yml" (
+  echo Backend folder was not found: %VEDHA_SERVICE_DIR%
   echo.
-  echo OPENAI_API_KEY is missing.
-  echo Paste your OpenAI API key now. It will be saved locally in:
-  echo   %OPENAI_KEY_FILE%
-  echo.
-  set /p OPENAI_API_KEY=OpenAI API key:
-  if not "%OPENAI_API_KEY%"=="" (
-    >"%OPENAI_KEY_FILE%" <nul set /p="%OPENAI_API_KEY%"
-    echo Key saved locally.
-  )
-)
-
-if "%OPENAI_API_KEY%"=="" (
-  echo.
-  echo The backend will not start without this key, so no OpenAI API calls can happen.
   pause
   exit /b 1
 )
 
 where docker >nul 2>nul
 if errorlevel 1 (
-  echo Docker was not found. Please start Docker Desktop and try again.
+  echo Docker was not found on PATH. Start Docker Desktop, then try again.
+  echo.
   pause
   exit /b 1
 )
 
-where corepack >nul 2>nul
-if errorlevel 1 (
-  echo corepack was not found. Please install Node.js 24+ and try again.
-  pause
-  exit /b 1
-)
-
-if not exist "node_modules" (
-  echo Installing dependencies...
-  corepack pnpm install
-  if errorlevel 1 (
-    echo Dependency install failed.
-    pause
-    exit /b 1
-  )
-)
-
-if not exist "%VEDHA_SERVICE_DIR%\docker-compose.yml" (
-  echo Backend folder was not found: %VEDHA_SERVICE_DIR%
-  pause
-  exit /b 1
-)
-
-echo Starting backend Docker service on http://localhost:9090 ...
 pushd "%VEDHA_SERVICE_DIR%"
-docker compose up -d mysql
+docker compose up -d mysql vedha-service
 if errorlevel 1 (
   popd
-  echo MySQL container failed to start.
-  pause
-  exit /b 1
-)
-
-docker compose up -d --build vedha-service
-if errorlevel 1 (
-  popd
-  echo Vedha backend container failed to start.
+  echo.
+  echo Failed to start Vedha backend service.
   pause
   exit /b 1
 )
 popd
 
-echo Starting renderer support process on http://localhost:54321 ...
-start "Vedha Renderer" /min cmd /k "cd /d ""%~dp0"" && set VITE_API_BASE_URL=%VITE_API_BASE_URL%&& set VITE_BACKEND_MANUAL_WS_URL=%VITE_BACKEND_MANUAL_WS_URL%&& corepack pnpm run dev:serve-renderer"
+echo Waiting for backend on http://localhost:9090 ...
+for /l %%i in (1,1,30) do (
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri 'http://localhost:9090' -UseBasicParsing -TimeoutSec 2; exit 0 } catch { if ($_.Exception.Response) { exit 0 } else { exit 1 } }" >nul 2>nul
+  if not errorlevel 1 goto backend_ready
+  timeout /t 2 /nobreak >nul
+)
 
-timeout /t 4 /nobreak >nul
+echo Backend did not respond yet. Opening the app anyway; Docker may still be finishing startup.
+goto launch_app
 
-echo Launching Electron...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c cd /d ""%~dp0"" && set VITE_API_BASE_URL=%VITE_API_BASE_URL%&& set VITE_BACKEND_MANUAL_WS_URL=%VITE_BACKEND_MANUAL_WS_URL%&& corepack pnpm exec electron .' -WindowStyle Hidden"
+:backend_ready
+echo Backend is responding.
+
+:launch_app
+if not exist "%VEDHA_EXE%" (
+  echo Vedha executable was not found: %VEDHA_EXE%
+  echo Run pnpm build first, or check the release\win-unpacked folder.
+  echo.
+  pause
+  exit /b 1
+)
+
+for /f "usebackq delims=" %%p in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$exe = [IO.Path]::GetFullPath('%VEDHA_EXE%'); $process = Get-Process -Name 'Vedha' -ErrorAction SilentlyContinue | Where-Object { $_.Path -and ([IO.Path]::GetFullPath($_.Path) -ieq $exe) } | Select-Object -First 1; if ($process) { $process.Id }"`) do set "VEDHA_RUNNING_PID=%%p"
+
+if defined VEDHA_RUNNING_PID (
+  echo Vedha is already running ^(PID %VEDHA_RUNNING_PID%^). Skipping app launch.
+  echo Press Ctrl+B to show or hide the existing Vedha window.
+  echo.
+  pause
+  exit /b 0
+)
+
+echo Launching Vedha...
+start "" "%VEDHA_EXE%"
 
 echo.
-echo Vedha app startup requested. Use only the Vedha app window.
-echo The minimized renderer window is only a local support process.
+echo Vedha launch requested. You can close this window.
+pause
 
 endlocal
