@@ -197,6 +197,7 @@ if (!gotTheLock) {
       if (state.mainWindow.isMinimized()) {
         state.mainWindow.restore();
       }
+      showMainWindow();
       state.mainWindow.focus();
     }
   });
@@ -213,10 +214,11 @@ async function createWindow(): Promise<void> {
   }
 
   const primaryDisplay = screen.getPrimaryDisplay();
-  const workArea = primaryDisplay.workAreaSize;
+  const workArea = primaryDisplay.workArea;
   state.screenWidth = workArea.width;
   state.screenHeight = workArea.height;
-  state.currentY = 50;
+  state.currentX = workArea.x + 24;
+  state.currentY = workArea.y + 50;
 
   const configFactory = WindowConfigFactory.getInstance();
   const windowConfig = configFactory.getConfig(state.appMode);
@@ -235,7 +237,7 @@ async function createWindow(): Promise<void> {
     ...windowsSpecificOptions,
     show: false,
     x: state.currentX,
-    y: 50,
+    y: state.currentY,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -254,14 +256,21 @@ async function createWindow(): Promise<void> {
     console.log('Window finished loading');
     enforceCaptureProtection();
     if (state.mainWindow && !state.mainWindow.isVisible()) {
-      state.mainWindow.showInactive();
+      showMainWindow();
     }
   });
 
   state.mainWindow.once('ready-to-show', () => {
     enforceCaptureProtection();
-    state.mainWindow?.showInactive();
+    showMainWindow();
   });
+
+  setTimeout(() => {
+    if (state.mainWindow && !state.mainWindow.isDestroyed() && !state.mainWindow.isVisible()) {
+      console.log('Force showing window after startup fallback');
+      showMainWindow();
+    }
+  }, 3000);
 
   state.mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
     console.error('Window failed to load:', errorCode, errorDescription);
@@ -451,17 +460,24 @@ function showMainWindow(): void {
   if (win && !win.isDestroyed()) {
     console.log('Showing main window...');
 
-    if (state.windowPosition && state.windowSize) {
-      win.setBounds({
-        ...state.windowPosition,
-        ...state.windowSize,
-      });
-    }
+    const currentBounds = win.getBounds();
+    const workArea = screen.getDisplayMatching(currentBounds).workArea;
+    const restoredBounds = clampWindowBoundsToDisplay({
+      x: workArea.x + 24,
+      y: workArea.y + 24,
+      width: state.windowSize?.width || currentBounds.width,
+      height: state.windowSize?.height || currentBounds.height,
+    });
+
+    win.setBounds(restoredBounds);
+    state.windowPosition = { x: restoredBounds.x, y: restoredBounds.y };
+    state.windowSize = { width: restoredBounds.width, height: restoredBounds.height };
+    state.currentX = restoredBounds.x;
+    state.currentY = restoredBounds.y;
 
     const configFactory = WindowConfigFactory.getInstance();
     const view = getView();
 
-    win.setOpacity(0);
     win.showInactive();
 
     // Apply appropriate behavior based on current view
@@ -492,7 +508,11 @@ function toggleMainWindow(): void {
 
   isToggling = true;
 
-  if (state.isWindowVisible) {
+  const win = state.mainWindow;
+  const isActuallyVisible =
+    !!win && !win.isDestroyed() && win.isVisible() && win.getOpacity() > 0;
+
+  if (isActuallyVisible) {
     hideMainWindow();
   } else {
     showMainWindow();
@@ -533,16 +553,19 @@ function moveWindowVertical(updateFn: (y: number) => number): void {
   }
 }
 
-function isWindowCompletelyOffScreen(x: number, y: number, width: number, height: number): boolean {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const workArea = primaryDisplay.workAreaSize;
+function clampWindowBoundsToDisplay(bounds: Electron.Rectangle): Electron.Rectangle {
+  const workArea = screen.getDisplayMatching(bounds).workArea;
+  const width = Math.min(bounds.width, workArea.width);
+  const height = Math.min(bounds.height, workArea.height);
+  const maxX = workArea.x + Math.max(0, workArea.width - width);
+  const maxY = workArea.y + Math.max(0, workArea.height - height);
 
-  return (
-    x + width < 0 || // Completely left of screen
-    x > workArea.width || // Completely right of screen
-    y + height < 0 || // Completely above screen
-    y > workArea.height // Completely below screen
-  );
+  return {
+    x: Math.round(Math.min(Math.max(workArea.x, bounds.x), maxX)),
+    y: Math.round(Math.min(Math.max(workArea.y, bounds.y), maxY)),
+    width: Math.round(width),
+    height: Math.round(height),
+  };
 }
 
 function setWindowDimensions(width: number, height: number, source: string): void {
@@ -551,8 +574,7 @@ function setWindowDimensions(width: number, height: number, source: string): voi
   if (state.mainWindow && !state.mainWindow.isDestroyed()) {
     const [currentX, currentY] = state.mainWindow.getPosition();
     const currentBounds = state.mainWindow.getBounds();
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const workArea = primaryDisplay.workAreaSize;
+    const workArea = screen.getDisplayMatching(currentBounds).workArea;
 
     const baseWidth = 500;
     const maxWidth = workArea.width;
@@ -620,30 +642,37 @@ function setWindowDimensions(width: number, height: number, source: string): voi
     );
     console.log('[setWindowDimensions] newHeight:', newHeight);
 
-    // Keep the resized overlay inside the visible work area when it grows.
-    let adjustedX = Math.min(Math.max(0, currentX), Math.max(0, workArea.width - newWidth));
-    let adjustedY = Math.min(Math.max(0, currentY), Math.max(0, workArea.height - newHeight));
-    if (isWindowCompletelyOffScreen(currentX, currentY, newWidth, newHeight)) {
-      adjustedX = Math.max(0, (workArea.width - newWidth) / 2);
-      adjustedY = Math.max(0, (workArea.height - newHeight) / 2);
-      console.log('[setWindowDimensions] Window off-screen, adjusted to:', adjustedX, adjustedY);
-    }
-
-    console.log('[setWindowDimensions] setBounds:', adjustedX, adjustedY, newWidth, newHeight);
-
-    state.mainWindow.setBounds({
-      x: adjustedX,
-      y: adjustedY,
+    const nextX =
+      source === 'SolutionsPage' || source === 'AuthForm'
+        ? workArea.x + 24
+        : currentX;
+    const nextY =
+      source === 'SolutionsPage' || source === 'AuthForm'
+        ? workArea.y + 24
+        : currentY;
+    const adjustedBounds = clampWindowBoundsToDisplay({
+      x: nextX,
+      y: nextY,
       width: newWidth,
       height: newHeight,
     });
 
+    console.log(
+      '[setWindowDimensions] setBounds:',
+      adjustedBounds.x,
+      adjustedBounds.y,
+      adjustedBounds.width,
+      adjustedBounds.height,
+    );
+
+    state.mainWindow.setBounds(adjustedBounds);
+
     enforceCaptureProtection();
 
-    state.currentX = adjustedX;
-    state.currentY = adjustedY;
-    state.windowPosition = { x: adjustedX, y: adjustedY };
-    state.windowSize = { width: newWidth, height: newHeight };
+    state.currentX = adjustedBounds.x;
+    state.currentY = adjustedBounds.y;
+    state.windowPosition = { x: adjustedBounds.x, y: adjustedBounds.y };
+    state.windowSize = { width: adjustedBounds.width, height: adjustedBounds.height };
   } else {
     console.log('[setWindowDimensions] SKIPPED - mainWindow is null or destroyed');
   }
@@ -858,10 +887,16 @@ function preserveWindowPosition<T>(operation: () => T): T {
     state.windowPosition &&
     state.windowSize
   ) {
-    state.mainWindow.setBounds({
+    const restoredBounds = clampWindowBoundsToDisplay({
       ...state.windowPosition,
       ...state.windowSize,
     });
+
+    state.mainWindow.setBounds(restoredBounds);
+    state.windowPosition = { x: restoredBounds.x, y: restoredBounds.y };
+    state.windowSize = { width: restoredBounds.width, height: restoredBounds.height };
+    state.currentX = restoredBounds.x;
+    state.currentY = restoredBounds.y;
   }
 
   return result;

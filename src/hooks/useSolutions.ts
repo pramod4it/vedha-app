@@ -66,12 +66,10 @@ export function useSolutions() {
 
   const updateDimensions = () => {
     if (contentRef.current) {
-      const contentHeight = Math.max(contentRef.current.scrollHeight, 900);
-      const contentWidth = Math.max(contentRef.current.scrollWidth, 1800);
       window.electronAPI
         .updateContentDimensions({
-          width: contentWidth,
-          height: contentHeight,
+          width: 980,
+          height: 720,
           source: 'useSolutions',
         })
         .catch(console.error);
@@ -97,16 +95,6 @@ export function useSolutions() {
     const resizeObserver = new ResizeObserver(updateDimensions);
     if (contentRef.current) {
       resizeObserver.observe(contentRef.current);
-    }
-
-    const mutationObserver = new MutationObserver(updateDimensions);
-    if (contentRef.current) {
-      mutationObserver.observe(contentRef.current, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        characterData: true,
-      });
     }
 
     updateDimensions();
@@ -166,7 +154,6 @@ export function useSolutions() {
 
     return () => {
       resizeObserver.disconnect();
-      mutationObserver.disconnect();
       cleanupFunctions.forEach((cleanup) => {
         cleanup();
       });

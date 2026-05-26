@@ -62,13 +62,29 @@ function toText(value: unknown): string {
 
 function parseRealtimeResponse(response: string): Partial<SolveResponse> {
   try {
-    return JSON.parse(response) as Partial<SolveResponse>;
+    const parsed = JSON.parse(response) as Partial<SolveResponse> & {
+      content?: unknown;
+      question?: unknown;
+      type?: unknown;
+    };
+
+    if (!parsed.answerText && parsed.content) {
+      return {
+        ...parsed,
+        answerText: toText(parsed.content),
+        problemStatement: toText(parsed.question) || toText(parsed.problemStatement),
+        messageType: toText(parsed.type) || toText(parsed.messageType),
+        code: '',
+      };
+    }
+
+    return parsed;
   } catch {
     const start = response.indexOf('{');
     const end = response.lastIndexOf('}');
 
     if (start >= 0 && end > start) {
-      return JSON.parse(response.slice(start, end + 1)) as Partial<SolveResponse>;
+      return parseRealtimeResponse(response.slice(start, end + 1));
     }
 
     throw new Error('Realtime response is not JSON');
@@ -129,8 +145,8 @@ const SubscribedAppContent: React.FC = () => {
       const parsed = parseRealtimeResponse(response);
       const thoughts = toStringArray(parsed.thoughts);
       const followUpQuestions = toStringArray(parsed.followUpQuestions);
-      const code = toText(parsed.code);
       const answerText = toText(parsed.answerText);
+      const code = answerText ? '' : toText(parsed.code);
       const diagramMermaid = toText(parsed.diagramMermaid);
       const problemStatement = toText(parsed.problemStatement);
       const sayThis = toText(parsed.sayThis);
@@ -146,7 +162,7 @@ const SubscribedAppContent: React.FC = () => {
             : hasContent
               ? []
               : ['The backend returned an answer in an unexpected shape. Showing the raw answer.'],
-        code: hasContent ? code : response,
+        code,
         answerText,
         diagramMermaid,
         messageType: toText(parsed.messageType) || 'NEW_QUESTION',
@@ -165,10 +181,11 @@ const SubscribedAppContent: React.FC = () => {
     } catch {
       setSolution({
         thoughts: ['The interviewer asked a question. Here is a concise answer from the backend.'],
-        code: response,
+        code: '',
+        answerText: response,
         timeComplexity: 'N/A',
         spaceComplexity: 'N/A',
-        problemStatement: response,
+        problemStatement: 'Manual question',
         conversationId: '',
       });
       setView('solutions');
@@ -185,14 +202,17 @@ const SubscribedAppContent: React.FC = () => {
       if (!containerRef.current) {
         return;
       }
-      const minWidth = view === 'solutions' ? 1800 : 360;
-      const minHeight = view === 'solutions' ? 900 : 240;
-      const height = Math.max(containerRef.current.scrollHeight, minHeight);
-      const width = Math.max(containerRef.current.scrollWidth, minWidth);
+      const width = view === 'solutions' ? 980 : Math.max(containerRef.current.scrollWidth, 360);
+      const height = view === 'solutions' ? 720 : Math.max(containerRef.current.scrollHeight, 240);
       window.electronAPI
         ?.updateContentDimensions({ width, height, source: 'SubscribedApp' })
         .catch(console.error);
     };
+
+    if (view === 'solutions') {
+      updateDimensions();
+      return;
+    }
 
     const resizeObserver = new ResizeObserver(updateDimensions);
     resizeObserver.observe(containerRef.current);

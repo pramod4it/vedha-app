@@ -16,7 +16,7 @@ const SolutionContent: React.FC<SolutionContentProps> = ({
   type = 'text',
 }) => {
   return (
-    <div className="bg-[#1E2530]/70 rounded-lg p-3 backdrop-blur">
+    <div className="min-w-0 rounded-lg bg-[#1E2530]/70 p-3 backdrop-blur">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
         <h2 className="text-xs font-semibold text-white tracking-wide">{title}</h2>
@@ -29,7 +29,7 @@ const SolutionContent: React.FC<SolutionContentProps> = ({
           </p>
         </div>
       ) : (
-        <div className={`text-xs leading-[1.45] ${type === 'text' ? 'text-gray-100' : ''}`}>
+        <div className={`min-w-0 overflow-x-hidden text-xs leading-[1.45] ${type === 'text' ? 'text-gray-100' : ''}`}>
           {content}
         </div>
       )}

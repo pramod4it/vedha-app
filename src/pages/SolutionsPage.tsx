@@ -30,6 +30,8 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
 }) => {
   const [manualQuestion, setManualQuestion] = useState('');
 
+  const [pendingQuestion, setPendingQuestion] = useState('');
+
   const [manualSubmitError, setManualSubmitError] = useState('');
 
   const [audioDraftEnabled, setAudioDraftEnabled] = useState(false);
@@ -53,8 +55,8 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
   useEffect(() => {
     window.electronAPI
       .updateContentDimensions({
-        width: 1800,
-        height: 900,
+        width: 980,
+        height: 760,
         source: 'SolutionsPage',
       })
       .catch(console.error);
@@ -68,6 +70,12 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
     setManualQuestion(audioTranscript.trim());
     setManualSubmitError('');
   }, [audioDraftEnabled, audioTranscript]);
+
+  useEffect(() => {
+    if (!isManualQuestionProcessing) {
+      setPendingQuestion('');
+    }
+  }, [isManualQuestionProcessing]);
 
   if (!isResetting && solutionState.newSolution) {
     return <DebugPage isProcessing={debugProcessing} setIsProcessing={setDebugProcessing} />;
@@ -94,6 +102,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
       return;
     }
 
+    setPendingQuestion(question);
     setManualQuestion('');
     setManualSubmitError('');
   };
@@ -119,6 +128,9 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
       (thoughtsData && thoughtsData.length > 0),
   );
 
+  const shouldShowAnswerArea = hasSolutionContent || isManualQuestionProcessing;
+  const shouldShowPendingAnswer = isManualQuestionProcessing && visibleSolutions.length === 0;
+
   const screenshotSection =
     hasSolutionContent && screenshots.length > 0 ? (
       <ScreenshotSection
@@ -133,7 +145,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
   );
 
   const solutionSection = (
-    <div className="w-full max-w-[1040px] space-y-6">
+    <div className="w-full max-w-full space-y-6">
       <div className="w-full overflow-hidden rounded-3xl border border-zinc-800/70 bg-zinc-950/70 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-md">
         <div className="border-b border-zinc-800 px-5 py-2.5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -162,7 +174,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
           </div>
         </div>
 
-        <div className="w-full p-4 xl:p-5">
+        <div className="w-full p-3 xl:p-4">
           <div className="mb-4 rounded-2xl border border-zinc-800/70 bg-zinc-950/60 p-4">
             <label
               htmlFor="manual-question"
@@ -196,7 +208,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
               </span>
             </div>
 
-            <div className="mt-3 flex flex-col gap-4 md:flex-row">
+            <div className="mt-3 flex flex-col gap-3 lg:flex-row">
               <textarea
                 id="manual-question"
                 value={manualQuestion}
@@ -217,11 +229,11 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
                   }
                 }}
                 rows={5}
-                className="min-h-[150px] flex-1 resize-y rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-xs font-normal leading-5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-cyan-500/70 focus:ring-2 focus:ring-cyan-500/20"
+                className="min-h-[110px] flex-1 resize-y rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-xs font-normal leading-5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-cyan-500/70 focus:ring-2 focus:ring-cyan-500/20"
                 placeholder="Type the interviewer question here"
               />
 
-              <div className="flex shrink-0 flex-col gap-2 md:self-end">
+              <div className="flex shrink-0 flex-row gap-2 lg:flex-col lg:self-end">
                 <button
                   type="button"
                   onClick={clearManualQuestion}
@@ -255,14 +267,45 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
             ) : null}
           </div>
 
-          {!hasSolutionContent ? (
-            <SolutionSection isGenerating={true} />
-          ) : (
-            <div className="max-h-[52vh] space-y-5 overflow-y-auto pr-1">
+          {shouldShowAnswerArea ? (
+            <div className="min-h-[260px] max-h-[48vh] space-y-4 overflow-y-auto overflow-x-hidden pr-1 transition-[min-height,opacity] duration-200 ease-out">
+              {shouldShowPendingAnswer ? (
+                <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/50 transition-opacity duration-200">
+                  <div className="border-b border-zinc-800/70 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="whitespace-pre-wrap text-sm font-semibold leading-5 text-zinc-100">
+                          {`1. ${pendingQuestion || 'Manual question'}`}
+                        </h2>
+                      </div>
+
+                      <span className="shrink-0 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-200">
+                        #1
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="min-h-[190px] min-w-0 p-4">
+                    <div className="rounded-xl border border-zinc-800/60 bg-[#1E2530]/60 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-xs font-medium text-cyan-100">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        <span>Generating answer</span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="h-3 w-11/12 animate-pulse rounded bg-zinc-700/55" />
+                        <div className="h-3 w-4/5 animate-pulse rounded bg-zinc-700/45" />
+                        <div className="h-3 w-2/3 animate-pulse rounded bg-zinc-700/35" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {visibleSolutions.map((solution, index) => (
                 <div
                   key={solution.conversationId || `${solution.problemStatement}-${index}`}
-                  className="rounded-2xl border border-zinc-800/70 bg-zinc-950/50"
+                  className="rounded-2xl border border-zinc-800/70 bg-zinc-950/50 transition-opacity duration-200"
                 >
                   <div className="border-b border-zinc-800/70 px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
@@ -278,7 +321,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
                     </div>
                   </div>
 
-                  <div className="p-4">
+                  <div className="min-w-0 p-4">
                     <SolutionSection
                       solutionData={solution.code || null}
                       answerTextData={solution.answerText || null}
@@ -289,6 +332,8 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="min-h-[260px] rounded-2xl border border-zinc-800/50 bg-zinc-950/30" />
           )}
         </div>
       </div>
@@ -296,7 +341,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
   );
 
   return (
-    <div ref={contentRef} className="relative w-full overflow-x-hidden px-4 py-1">
+    <div ref={contentRef} className="relative w-full overflow-x-hidden px-3 py-1">
       <LiveInterviewLayout
         className="flex-col items-center gap-2 overflow-x-hidden pb-0 pr-0"
         screenshotSection={screenshotSection}

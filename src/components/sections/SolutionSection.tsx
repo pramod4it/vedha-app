@@ -20,7 +20,7 @@ interface SolutionSectionProps {
 }
 
 function formatAnswerLines(answer: string): string[] {
-  return answer
+  return normalizeAnswerText(answer)
     .split(/\r?\n/)
     .map((line) =>
       line
@@ -29,6 +29,14 @@ function formatAnswerLines(answer: string): string[] {
         .replace(/^\d+[.)]\s*/, ''),
     )
     .filter(Boolean);
+}
+
+function normalizeAnswerText(answer: string): string {
+  return answer
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .trim();
 }
 
 const SolutionSectionInner: React.FC<SolutionSectionProps> = ({
@@ -71,7 +79,7 @@ const SolutionSectionInner: React.FC<SolutionSectionProps> = ({
       <div className={`space-y-4 ${className}`}>
         {answerTextData && (
           <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-100">
-            {answerTextData}
+            {normalizeAnswerText(answerTextData)}
           </p>
         )}
 
@@ -118,7 +126,7 @@ const SolutionSectionInner: React.FC<SolutionSectionProps> = ({
       {sayThis && (
         <SolutionContent
           title="Say this"
-          content={<p className="whitespace-pre-wrap leading-6 text-zinc-100">{sayThis}</p>}
+          content={<p className="whitespace-pre-wrap leading-6 text-zinc-100">{normalizeAnswerText(sayThis)}</p>}
           isLoading={!sayThis}
         />
       )}
@@ -126,7 +134,7 @@ const SolutionSectionInner: React.FC<SolutionSectionProps> = ({
       {example && (
         <SolutionContent
           title="Example"
-          content={<p className="whitespace-pre-wrap leading-6 text-zinc-100">{example}</p>}
+          content={<p className="whitespace-pre-wrap leading-6 text-zinc-100">{normalizeAnswerText(example)}</p>}
           isLoading={!example}
         />
       )}
