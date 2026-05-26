@@ -2,8 +2,8 @@ import { LoaderCircle, Mic, MicOff, Send, Trash2, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { CommandSection, ScreenshotSection, SolutionSection } from '../components/sections';
-import { AnswerDepthSelector } from '../components/shared/AnswerDepthSelector';
 import { LanguageSelector } from '../components/shared/LanguageSelector';
+import { ShortAnswerCheckbox } from '../components/shared/ShortAnswerCheckbox';
 
 import { useSolutionContext } from '../contexts/SolutionContext';
 
@@ -129,7 +129,24 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
   );
 
   const shouldShowAnswerArea = hasSolutionContent || isManualQuestionProcessing;
-  const shouldShowPendingAnswer = isManualQuestionProcessing && visibleSolutions.length === 0;
+  const visibleAnswerCards =
+    isManualQuestionProcessing && visibleSolutions.length === 0
+      ? [
+          {
+            answerText: '',
+            code: '',
+            conversationId: 'pending-manual-answer',
+            diagramMermaid: '',
+            displaySequence: 1,
+            isPending: true,
+            problemStatement: pendingQuestion || 'Manual question',
+          },
+        ]
+      : visibleSolutions.map((solution, index) => ({
+          ...solution,
+          displaySequence: solution.displaySequence || visibleSolutions.length - index,
+          isPending: false,
+        }));
 
   const screenshotSection =
     hasSolutionContent && screenshots.length > 0 ? (
@@ -158,7 +175,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <LanguageSelector compact showReadableVarNames={false} />
 
-              <AnswerDepthSelector compact depths={['short', 'medium', 'systemdesign']} />
+              <ShortAnswerCheckbox />
 
               <button
                 type="button"
@@ -269,65 +286,47 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
 
           {shouldShowAnswerArea ? (
             <div className="min-h-[260px] max-h-[48vh] space-y-4 overflow-y-auto overflow-x-hidden pr-1 transition-[min-height,opacity] duration-200 ease-out">
-              {shouldShowPendingAnswer ? (
-                <div className="rounded-2xl border border-zinc-800/70 bg-zinc-950/50 transition-opacity duration-200">
-                  <div className="border-b border-zinc-800/70 px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h2 className="whitespace-pre-wrap text-sm font-semibold leading-5 text-zinc-100">
-                          {`1. ${pendingQuestion || 'Manual question'}`}
-                        </h2>
-                      </div>
-
-                      <span className="shrink-0 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-200">
-                        #1
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="min-h-[190px] min-w-0 p-4">
-                    <div className="rounded-xl border border-zinc-800/60 bg-[#1E2530]/60 p-4">
-                      <div className="mb-3 flex items-center gap-2 text-xs font-medium text-cyan-100">
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                        <span>Generating answer</span>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="h-3 w-11/12 animate-pulse rounded bg-zinc-700/55" />
-                        <div className="h-3 w-4/5 animate-pulse rounded bg-zinc-700/45" />
-                        <div className="h-3 w-2/3 animate-pulse rounded bg-zinc-700/35" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {visibleSolutions.map((solution, index) => (
+              {visibleAnswerCards.map((solution) => (
                 <div
-                  key={solution.conversationId || `${solution.problemStatement}-${index}`}
+                  key={`answer-${solution.displaySequence}`}
                   className="rounded-2xl border border-zinc-800/70 bg-zinc-950/50 transition-opacity duration-200"
                 >
                   <div className="border-b border-zinc-800/70 px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h2 className="whitespace-pre-wrap text-sm font-semibold leading-5 text-zinc-100">
-                          {`${solution.displaySequence || visibleSolutions.length - index}. ${solution.problemStatement || 'Question'}`}
+                          {`${solution.displaySequence}. ${solution.problemStatement || 'Question'}`}
                         </h2>
                       </div>
 
                       <span className="shrink-0 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-200">
-                        {`#${solution.displaySequence || visibleSolutions.length - index}`}
+                        {`#${solution.displaySequence}`}
                       </span>
                     </div>
                   </div>
 
-                  <div className="min-w-0 p-4">
-                    <SolutionSection
-                      solutionData={solution.code || null}
-                      answerTextData={solution.answerText || null}
-                      diagramData={solution.diagramMermaid || null}
-                      title="Answer"
-                    />
+                  <div className="min-h-[190px] min-w-0 p-4 transition-colors duration-200">
+                    {solution.isPending ? (
+                      <div className="rounded-xl border border-zinc-800/60 bg-[#1E2530]/60 p-4">
+                        <div className="mb-3 flex items-center gap-2 text-xs font-medium text-cyan-100">
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          <span>Generating answer</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="h-3 w-11/12 animate-pulse rounded bg-zinc-700/55" />
+                          <div className="h-3 w-4/5 animate-pulse rounded bg-zinc-700/45" />
+                          <div className="h-3 w-2/3 animate-pulse rounded bg-zinc-700/35" />
+                        </div>
+                      </div>
+                    ) : (
+                      <SolutionSection
+                        solutionData={solution.code || null}
+                        answerTextData={solution.answerText || null}
+                        diagramData={solution.diagramMermaid || null}
+                        title="Answer"
+                      />
+                    )}
                   </div>
                 </div>
               ))}
