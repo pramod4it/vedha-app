@@ -4,6 +4,7 @@ setlocal
 set "VEDHA_APP_DIR=%~dp0"
 set "VEDHA_SERVICE_DIR=D:\vedha-service"
 set "VEDHA_EXE=%VEDHA_APP_DIR%release\win-unpacked\Vedha.exe"
+set "VEDHA_SERVICE_URL=http://localhost:9191"
 
 echo Starting Vedha backend Docker service...
 
@@ -33,9 +34,9 @@ if errorlevel 1 (
 )
 popd
 
-echo Waiting for backend on http://localhost:9090 ...
+echo Waiting for backend on %VEDHA_SERVICE_URL% ...
 for /l %%i in (1,1,30) do (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri 'http://localhost:9090' -UseBasicParsing -TimeoutSec 2; exit 0 } catch { if ($_.Exception.Response) { exit 0 } else { exit 1 } }" >nul 2>nul
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri '%VEDHA_SERVICE_URL%' -UseBasicParsing -TimeoutSec 2; exit 0 } catch { if ($_.Exception.Response) { exit 0 } else { exit 1 } }" >nul 2>nul
   if not errorlevel 1 goto backend_ready
   timeout /t 2 /nobreak >nul
 )

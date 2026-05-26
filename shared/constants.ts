@@ -26,7 +26,7 @@ export const isSelfHosted = (): boolean => {
  * Falls back to development URL if not set
  */
 export const getApiBaseUrl = (): string => {
-  return getRuntimeEnv().VITE_API_BASE_URL || 'http://localhost:9090';
+  return getRuntimeEnv().VITE_API_BASE_URL || 'http://localhost:9191';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

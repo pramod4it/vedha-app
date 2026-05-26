@@ -278,7 +278,7 @@ async function createWindow(): Promise<void> {
       // In development, retry loading after a short delay
       console.log('Retrying to load development server...');
       setTimeout(() => {
-        state.mainWindow?.loadURL('http://localhost:54321').catch((error) => {
+        state.mainWindow?.loadURL('http://localhost:54322').catch((error) => {
           console.error('Failed to load dev server on retry:', error);
         });
       }, 1000);
@@ -287,7 +287,7 @@ async function createWindow(): Promise<void> {
 
   if (isDev) {
     setTimeout(() => {
-      state.mainWindow?.loadURL('http://localhost:54321').catch((error) => {
+      state.mainWindow?.loadURL('http://localhost:54322').catch((error) => {
         console.error('Failed to load dev server:', error);
       });
     }, 200);

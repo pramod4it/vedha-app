@@ -15,7 +15,7 @@ const runtimeEnv =
 
 export const DEFAULT_REALTIME_URL =
     runtimeEnv.VITE_BACKEND_MANUAL_WS_URL ||
-    `${runtimeEnv.VITE_API_BASE_URL || 'http://localhost:9090'}/ws/interview/manual`
+    `${runtimeEnv.VITE_API_BASE_URL || 'http://localhost:9191'}/ws/interview/manual`
         .replace(/^http:/, 'ws:')
         .replace(/^https:/, 'wss:');
 
