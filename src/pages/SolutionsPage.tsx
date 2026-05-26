@@ -5,6 +5,7 @@ import { CommandSection, ScreenshotSection, SolutionSection } from '../component
 import { LanguageSelector } from '../components/shared/LanguageSelector';
 import { ShortAnswerCheckbox } from '../components/shared/ShortAnswerCheckbox';
 
+import { API_BASE_URL } from '../config';
 import { useSolutionContext } from '../contexts/SolutionContext';
 
 import { useSolutions } from '../hooks';
@@ -34,7 +35,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
 
   const [manualSubmitError, setManualSubmitError] = useState('');
 
-  const [audioDraftEnabled, setAudioDraftEnabled] = useState(false);
+  const [audioDraftEnabled, setAudioDraftEnabled] = useState(true);
 
   const { state: solutionState, clearSolution } = useSolutionContext();
 
@@ -67,9 +68,35 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
       return;
     }
 
-    setManualQuestion(audioTranscript.trim());
+    const nextTranscript = audioTranscript.trim();
+
+    setManualQuestion((currentQuestion) => {
+      const current = currentQuestion.trim();
+
+      if (!current) {
+        return nextTranscript;
+      }
+
+      if (current.includes(nextTranscript)) {
+        return currentQuestion;
+      }
+
+      if (nextTranscript.includes(current)) {
+        return nextTranscript;
+      }
+
+      return `${currentQuestion.trimEnd()} ${nextTranscript}`;
+    });
     setManualSubmitError('');
   }, [audioDraftEnabled, audioTranscript]);
+
+  useEffect(() => {
+    const endpoint = audioDraftEnabled ? 'start' : 'stop';
+
+    fetch(`${API_BASE_URL}/audio/native/${endpoint}`, {
+      method: 'POST',
+    }).catch(console.error);
+  }, [audioDraftEnabled]);
 
   useEffect(() => {
     if (!isManualQuestionProcessing) {
@@ -221,7 +248,7 @@ const SolutionsPage: React.FC<SolutionsPageProps> = ({
               </button>
 
               <span className="text-[11px] text-zinc-500">
-                {audioDraftEnabled ? 'Transcript will fill the box. Send triggers AI.' : 'Off'}
+                {audioDraftEnabled ? 'On' : 'Off'}
               </span>
             </div>
 
